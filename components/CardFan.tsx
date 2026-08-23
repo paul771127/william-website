@@ -29,7 +29,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
   return (
     <div className="relative h-[24rem] sm:h-[30rem] select-none">
       {projects.map((p, i) => {
-        const angle = (i - mid) * 8;
+        const angle = (i - mid) * 6;
         const icon = icons[p.slug] ?? "📦";
         return (
           <Link
@@ -37,16 +37,16 @@ export default function CardFan({ projects }: { projects: Project[] }) {
             href={`/portfolio/${p.slug}`}
             aria-label={p.title}
             className="group absolute bottom-0 left-1/2 -ml-[4.5rem] sm:-ml-[5.5rem] hover:z-50 focus-visible:z-50 outline-none"
-            style={{ transform: `rotate(${angle}deg)`, transformOrigin: "50% 150%" }}
+            style={{ transform: `rotate(${angle}deg)`, transformOrigin: "50% 210%" }}
           >
             <div
               className={
                 `w-36 h-56 sm:w-44 sm:h-72 rounded-2xl border border-white/15 bg-gradient-to-br ${faces[i % faces.length]} ` +
                 "shadow-xl shadow-black/50 p-3 sm:p-4 flex flex-col justify-between " +
                 "transition-all duration-300 ease-out " +
-                "group-hover:-translate-y-16 sm:group-hover:-translate-y-24 " +
+                "group-hover:-translate-y-8 sm:group-hover:-translate-y-12 " +
                 "group-hover:border-sky-400/70 group-hover:shadow-sky-500/25 " +
-                "group-focus-visible:-translate-y-16 sm:group-focus-visible:-translate-y-24 group-focus-visible:border-sky-400"
+                "group-focus-visible:-translate-y-8 sm:group-focus-visible:-translate-y-12 group-focus-visible:border-sky-400"
               }
             >
               {/* 左上角小圖示:牌疊起來時仍露出的牌角 */}
