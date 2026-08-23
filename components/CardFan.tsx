@@ -27,7 +27,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
   const mid = (projects.length - 1) / 2;
 
   return (
-    <div className="relative h-[24rem] sm:h-[30rem] select-none">
+    <div className="relative h-[26rem] sm:h-[32rem] select-none">
       {projects.map((p, i) => {
         const angle = (i - mid) * 6;
         const icon = icons[p.slug] ?? "📦";
@@ -36,7 +36,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
             key={p.slug}
             href={`/portfolio/${p.slug}`}
             aria-label={p.title}
-            className="group absolute bottom-0 left-1/2 -ml-[4.5rem] sm:-ml-[5.5rem] hover:z-50 focus-visible:z-50 outline-none"
+            className="group absolute bottom-12 sm:bottom-16 left-1/2 -ml-[4.5rem] sm:-ml-[5.5rem] hover:z-50 focus-visible:z-50 outline-none"
             style={{ transform: `rotate(${angle}deg)`, transformOrigin: "50% 210%" }}
           >
             <div
