@@ -8,8 +8,24 @@ export async function getProjects(): Promise<Project[]> {
     .from("projects")
     .select("*")
     .order("sort_order", { ascending: true });
-  if (error || !data || data.length === 0) return fallbackProjects;
+  // 資料表為空或還沒跑 slug 欄位的 migration 時,改用內建預設內容
+  if (error || !data || data.length === 0 || !data[0].slug) {
+    return fallbackProjects;
+  }
   return data as Project[];
+}
+
+export async function getProjectBySlug(slug: string): Promise<Project | null> {
+  const fallback = fallbackProjects.find((p) => p.slug === slug) ?? null;
+  const supabase = getSupabase();
+  if (!supabase) return fallback;
+  const { data, error } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("slug", slug)
+    .single();
+  if (error || !data) return fallback;
+  return data as Project;
 }
 
 export async function getPosts(): Promise<Post[]> {
