@@ -16,7 +16,7 @@ export default async function PortfolioPage() {
           機電整合、AI 應用與軟韌體開發的實作專案。
         </p>
         <p className="text-sm text-sky-300/80 mt-4">
-          將滑鼠移到手牌上,點擊卡牌展開專案介紹
+          將滑鼠移到手牌上,點擊卡牌展開專案介紹;手機可左右滑動手牌
         </p>
       </div>
       <CardFan projects={projects} />
