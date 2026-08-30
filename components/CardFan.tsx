@@ -34,8 +34,12 @@ const CLOSE_MS = 380;
 const STEP_DEG = { mobile: 13, desktop: 11 };
 const RADIUS_RATIO = 2.1; // transform-origin: 50% 210%
 const DRAG_THRESHOLD = 8; // px,超過才算拖曳(否則視為點擊)
-const FLING_MS = 160; // 放手後依速度再滑多久(慣性)
-const FLING_MAX = 2; // 一次慣性最多滑幾張
+const MOBILE_VISIBLE = 5; // 手機同時看得到的牌數(其餘在環上但透明)
+// 慣性:放手後的滑行距離 = 速度 × 時間常數(模擬摩擦),最多滑 FLING_MAX 張
+const FLING_TAU_MS = 260;
+const FLING_MAX = 3;
+const FLING_MIN_MS = 260; // 慣性停止動畫的最短/最長時間
+const FLING_MAX_MS = 1400;
 
 /** 由「面板目前位置」換算出「縮回卡牌位置」所需的 transform(transform-origin 為左上角) */
 function transformTo(panel: HTMLElement, target: Rect | null) {
@@ -50,9 +54,9 @@ function toSlot(i: number, offset: number, n: number) {
   return ((((s + n / 2) % n) + n) % n) - n / 2;
 }
 
-/** 離中心越遠越淡:中間 1、最外側約 0.27、繞到另一邊的瞬間 0(看不到跳接) */
-function fadeOf(slot: number, n: number) {
-  const t = Math.abs(slot) / (n / 2);
+/** 離中心越遠越淡:中間 1,到可視範圍邊緣(half 個槽位)降到 0;範圍外的牌完全透明 */
+function fadeOf(slot: number, half: number) {
+  const t = Math.abs(slot) / half;
   return Math.max(0, 1 - t * t);
 }
 
@@ -98,6 +102,8 @@ export default function CardFan({ projects }: { projects: Project[] }) {
   }, []);
 
   const step = isDesktop ? STEP_DEG.desktop : STEP_DEG.mobile;
+  // 可視範圍的半寬(槽位數):桌機整副都看得到,手機只露出中間 MOBILE_VISIBLE 張
+  const visibleHalf = isDesktop ? n / 2 : Math.min(n / 2, MOBILE_VISIBLE / 2);
 
   const measure = (i: number): Rect | null => {
     const el = cardRefs.current[i];
@@ -113,13 +119,15 @@ export default function CardFan({ projects }: { projects: Project[] }) {
         const el = btnRefs.current[i];
         if (!el) continue;
         const slot = toSlot(i, o, n);
+        const fade = fadeOf(slot, visibleHalf);
         el.style.transform = `rotate(${slot * step}deg)`;
-        el.style.setProperty("--fade", String(fadeOf(slot, n)));
+        el.style.setProperty("--fade", String(fade));
         el.style.setProperty("--z", String(Math.round(slot + mid)));
+        el.style.pointerEvents = fade > 0 ? "" : "none";
         prevSlotRef.current[i] = slot;
       }
     },
-    [n, step, mid]
+    [n, step, mid, visibleHalf]
   );
 
   /** 把第 i 張牌轉到正中央(走最短方向) */
@@ -276,19 +284,33 @@ export default function CardFan({ projects }: { projects: Project[] }) {
     if (d.raf) cancelAnimationFrame(d.raf);
     applyLayout(d.live);
 
-    // 慣性:依放手瞬間的速度再往前滑一小段,再吸附到最近的一張
-    let target = d.live + Math.max(-FLING_MAX, Math.min(FLING_MAX, d.v * FLING_MS));
+    // 慣性:滑行距離 = 速度 × 時間常數(摩擦減速的積分),再吸附到最近的一張
+    const glide = Math.max(-FLING_MAX, Math.min(FLING_MAX, d.v * FLING_TAU_MS));
+    let target = d.live + glide;
     // 輕撥(不到半格)也至少換一張,手感比較像翻牌
     if (Math.abs(target - d.startOffset) < 0.5 && Math.abs(d.live - d.startOffset) > 0.15) {
       target = d.startOffset + Math.sign(d.live - d.startOffset);
     }
     const snapped = Math.round(target);
 
-    // 恢復動畫後,下一幀再寫入吸附位置,讓它從目前位置滑過去
-    btnRefs.current.forEach((el) => el && (el.style.transition = ""));
+    // 停止動畫的時間由「距離 / 速度」決定:撥得快滑得遠也停得久,撥得慢很快就停
+    const dist = Math.abs(snapped - d.live);
+    const speed = Math.max(Math.abs(d.v), 0.0015);
+    const duration = Math.round(
+      Math.max(FLING_MIN_MS, Math.min(FLING_MAX_MS, (dist / speed) * 0.9))
+    );
+    const ease = "cubic-bezier(0.12, 0.7, 0.2, 1)"; // 先快後慢,像被摩擦力停下
+
+    btnRefs.current.forEach((el) => {
+      if (el) el.style.transition = `transform ${duration}ms ${ease}, opacity ${duration}ms ${ease}`;
+    });
     requestAnimationFrame(() => {
       applyLayout(snapped);
       setOffset(snapped);
+      // 動畫結束後交還給 class 的預設 transition
+      setTimeout(() => {
+        btnRefs.current.forEach((el) => el && (el.style.transition = ""));
+      }, duration + 50);
     });
   };
 
@@ -312,7 +334,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
         {projects.map((p, i) => {
           const slot = toSlot(i, offset, n);
           const angle = slot * step;
-          const fade = fadeOf(slot, n);
+          const fade = fadeOf(slot, visibleHalf);
           // 剛從另一邊繞回來的牌不要做位移動畫,否則會橫掃整個扇形
           const jumped = Math.abs(slot - (prevSlotRef.current[i] ?? slot)) > 1;
           prevSlotRef.current[i] = slot;
@@ -361,6 +383,8 @@ export default function CardFan({ projects }: { projects: Project[] }) {
                   // 疊放順序跟著環狀位置走(右邊的牌壓在左邊的牌上)
                   "--z": Math.round(slot + mid),
                   "--fade": fade,
+                  // 完全透明(可視範圍外)的牌不可點
+                  pointerEvents: fade > 0 ? undefined : "none",
                 } as React.CSSProperties
               }
             >
