@@ -310,6 +310,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
       v = Math.sign(moved) * V_STOP * 1.5;
     }
     let target: number | null = null; // 進入吸附階段後鎖定的整張牌位置
+    let settleTau = SETTLE_TAU_MS;
     let last = performance.now();
 
     const tick = (t: number) => {
@@ -319,12 +320,20 @@ export default function CardFan({ projects }: { projects: Project[] }) {
         o += v * dt;
         v *= Math.exp(-dt / FRICTION_TAU_MS);
         if (Math.abs(v) < V_STOP) {
-          // 剩餘滑行距離 ≈ v·τ,直接選定停在哪一張
-          target = Math.round(o + v * FRICTION_TAU_MS);
+          // 剩餘滑行距離 ≈ v·τ,選定停在哪一張;一定要在前進方向上,不能倒退
+          let tgt = Math.round(o + v * FRICTION_TAU_MS);
+          if ((tgt - o) * v <= 0) tgt = v > 0 ? Math.ceil(o) : Math.floor(o);
+          target = tgt;
+          // 時間常數 = 距離 / 速度 → 吸附階段的初速剛好等於目前速度,不會突然加速
+          const speed = Math.abs(v);
+          settleTau =
+            speed < 1e-4
+              ? SETTLE_TAU_MS
+              : Math.max(60, Math.min(FRICTION_TAU_MS, Math.abs(tgt - o) / speed));
         }
       } else {
         // 指數逼近整張牌位置(臨界阻尼,不會來回彈)
-        o += (target - o) * (1 - Math.exp(-dt / SETTLE_TAU_MS));
+        o += (target - o) * (1 - Math.exp(-dt / settleTau));
         if (Math.abs(target - o) < 0.002) {
           o = target;
           applyLayout(o);
