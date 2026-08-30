@@ -14,15 +14,25 @@ const icons: Record<string, string> = {
   "local-mv-gen": "🎵",
 };
 
+// 牌面一律不透明(疊在一起時不能透出底下那張)
 const faces = [
-  "from-sky-800/80 to-slate-950",
-  "from-indigo-800/80 to-slate-950",
-  "from-cyan-800/80 to-slate-950",
-  "from-blue-800/80 to-slate-950",
-  "from-violet-800/80 to-slate-950",
-  "from-teal-800/80 to-slate-950",
-  "from-slate-700/80 to-slate-950",
+  "from-sky-800 to-slate-950",
+  "from-indigo-800 to-slate-950",
+  "from-cyan-800 to-slate-950",
+  "from-blue-800 to-slate-950",
+  "from-violet-800 to-slate-950",
+  "from-teal-800 to-slate-950",
+  "from-slate-700 to-slate-950",
 ];
+
+/**
+ * 淡出拆成兩層:
+ * - veil:背景色遮罩蓋在牌上,越靠邊越暗、融進背景(牌本身仍不透明,不會透出底下的牌)
+ * - alpha:只有快到可視範圍邊緣(fade < 0.25)才真的變透明,讓循環接回時看不到跳接
+ */
+function fadeLayers(fade: number) {
+  return { veil: 1 - fade, alpha: Math.min(1, fade / 0.25) };
+}
 
 type Rect = { x: number; y: number; w: number; h: number };
 type Phase = "closed" | "opening" | "open" | "closing";
@@ -129,8 +139,10 @@ export default function CardFan({ projects }: { projects: Project[] }) {
         if (!el) continue;
         const slot = toSlot(i, o, n);
         const fade = fadeOf(slot, visibleHalf);
+        const { veil, alpha } = fadeLayers(fade);
         el.style.transform = `rotate(${slot * step}deg)`;
-        el.style.setProperty("--fade", String(fade));
+        el.style.setProperty("--fade", String(alpha));
+        el.style.setProperty("--veil", String(veil));
         el.style.setProperty("--z", String(Math.round(slot + mid)));
         el.style.pointerEvents = fade > 0 ? "" : "none";
         prevSlotRef.current[i] = slot;
@@ -419,7 +431,8 @@ export default function CardFan({ projects }: { projects: Project[] }) {
                   transformOrigin: `50% ${RADIUS_RATIO * 100}%`,
                   // 疊放順序跟著環狀位置走(右邊的牌壓在左邊的牌上)
                   "--z": Math.round(slot + mid),
-                  "--fade": fade,
+                  "--fade": fadeLayers(fade).alpha,
+                  "--veil": fadeLayers(fade).veil,
                   // 完全透明(可視範圍外)的牌不可點
                   pointerEvents: fade > 0 ? undefined : "none",
                 } as React.CSSProperties
@@ -430,7 +443,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
                   cardRefs.current[i] = el;
                 }}
                 className={
-                  `w-36 h-56 sm:w-40 sm:h-72 rounded-2xl border bg-gradient-to-br ${faces[i % faces.length]} ` +
+                  `relative w-36 h-56 sm:w-40 sm:h-72 rounded-2xl border bg-gradient-to-br ${faces[i % faces.length]} ` +
                   "shadow-xl shadow-black/50 p-3 sm:p-4 flex flex-col justify-between " +
                   "transition-all duration-300 ease-out " +
                   "group-hover:-translate-y-8 sm:group-hover:-translate-y-12 " +
@@ -467,6 +480,16 @@ export default function CardFan({ projects }: { projects: Project[] }) {
                     {canHover ? "點擊展開 →" : "再點一下展開 →"}
                   </p>
                 </div>
+
+                {/* 淡出遮罩:背景色蓋在牌上,越靠邊越暗;滑過/選中時掀開 */}
+                <div
+                  aria-hidden
+                  className={
+                    "absolute inset-0 rounded-2xl bg-[#0a0e14] pointer-events-none " +
+                    "opacity-(--veil) group-hover:opacity-0 group-focus-visible:opacity-0" +
+                    (isSelected ? " opacity-0" : "")
+                  }
+                />
               </div>
             </button>
           );
