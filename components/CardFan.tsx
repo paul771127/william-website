@@ -35,11 +35,11 @@ const STEP_DEG = { mobile: 13, desktop: 11 };
 const RADIUS_RATIO = 2.1; // transform-origin: 50% 210%
 const DRAG_THRESHOLD = 8; // px,超過才算拖曳(否則視為點擊)
 const MOBILE_VISIBLE = 5; // 手機同時看得到的牌數(其餘在環上但透明)
-// 慣性:放手後的滑行距離 = 速度 × 時間常數(模擬摩擦),最多滑 FLING_MAX 張
-const FLING_TAU_MS = 260;
-const FLING_MAX = 3;
-const FLING_MIN_MS = 260; // 慣性停止動畫的最短/最長時間
-const FLING_MAX_MS = 1400;
+// 慣性(整個輪盤):放手後速度以 exp(-t/τ) 衰減,τ 越大轉越久;慢到 V_STOP 以下就滑進最近的一張
+const FRICTION_TAU_MS = 550;
+const V_STOP = 0.0012; // 槽位/ms
+const SETTLE_TAU_MS = 140; // 最後吸附到整張牌的時間常數
+const V_MAX = 0.03; // 速度上限(槽位/ms),避免一撥飛太快
 
 /** 由「面板目前位置」換算出「縮回卡牌位置」所需的 transform(transform-origin 為左上角) */
 function transformTo(panel: HTMLElement, target: Rect | null) {
@@ -83,6 +83,8 @@ export default function CardFan({ projects }: { projects: Project[] }) {
   const movedRef = useRef(false); // 這次 pointer 有沒有拖曳過(用來吃掉隨後的 click)
   const prevSlotRef = useRef<number[]>([]);
   const btnRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const liveOffsetRef = useRef(0); // DOM 上目前的 offset(拖曳/慣性中會跟 state 不同步)
+  const spinRef = useRef<number>(0); // 慣性迴圈的 rAF id(0 = 沒在轉)
 
   // 展開面板狀態
   const [active, setActive] = useState<number | null>(null);
@@ -101,6 +103,12 @@ export default function CardFan({ projects }: { projects: Project[] }) {
     return () => mq.removeEventListener("change", apply);
   }, []);
 
+  // React state 改變(例如點牌置中)時同步 DOM 端的 offset;卸載時停掉慣性迴圈
+  useEffect(() => {
+    liveOffsetRef.current = offset;
+  }, [offset]);
+  useEffect(() => () => cancelAnimationFrame(spinRef.current), []);
+
   const step = isDesktop ? STEP_DEG.desktop : STEP_DEG.mobile;
   // 可視範圍的半寬(槽位數):桌機整副都看得到,手機只露出中間 MOBILE_VISIBLE 張
   const visibleHalf = isDesktop ? n / 2 : Math.min(n / 2, MOBILE_VISIBLE / 2);
@@ -115,6 +123,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
   /** 直接把某個 offset 的排版寫進 DOM(拖曳時用,不經過 React 重繪,才會順) */
   const applyLayout = useCallback(
     (o: number) => {
+      liveOffsetRef.current = o;
       for (let i = 0; i < n; i++) {
         const el = btnRefs.current[i];
         if (!el) continue;
@@ -237,17 +246,25 @@ export default function CardFan({ projects }: { projects: Project[] }) {
     const h = cardRefs.current[0]?.offsetHeight ?? 224;
     // 每個槽位在螢幕上大約的水平距離 = 半徑 × 角度(弧度)
     const pxPerSlot = h * RADIUS_RATIO * ((step * Math.PI) / 180);
+    // 輪盤還在轉 → 這一碰是「抓停」,不算點牌
+    const grabbing = spinRef.current !== 0;
+    if (grabbing) {
+      cancelAnimationFrame(spinRef.current);
+      spinRef.current = 0;
+      btnRefs.current.forEach((el) => el && (el.style.transition = "none"));
+    }
+    const start = liveOffsetRef.current;
     dragRef.current = {
       x: e.clientX,
-      startOffset: offset,
+      startOffset: start,
       pxPerSlot,
       lastX: e.clientX,
       lastT: e.timeStamp,
       v: 0,
       raf: 0,
-      live: offset,
+      live: start,
     };
-    movedRef.current = false;
+    movedRef.current = grabbing;
   };
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
@@ -284,34 +301,45 @@ export default function CardFan({ projects }: { projects: Project[] }) {
     if (d.raf) cancelAnimationFrame(d.raf);
     applyLayout(d.live);
 
-    // 慣性:滑行距離 = 速度 × 時間常數(摩擦減速的積分),再吸附到最近的一張
-    const glide = Math.max(-FLING_MAX, Math.min(FLING_MAX, d.v * FLING_TAU_MS));
-    let target = d.live + glide;
-    // 輕撥(不到半格)也至少換一張,手感比較像翻牌
-    if (Math.abs(target - d.startOffset) < 0.5 && Math.abs(d.live - d.startOffset) > 0.15) {
-      target = d.startOffset + Math.sign(d.live - d.startOffset);
+    // ---- 整個輪盤的慣性:每幀 offset += v·dt,v 依摩擦衰減;牌繞過循環點也照樣連續 ----
+    let o = d.live;
+    let v = Math.max(-V_MAX, Math.min(V_MAX, d.v));
+    // 輕撥(速度很小、不到半格)也至少換一張,手感比較像翻牌
+    const moved = d.live - d.startOffset;
+    if (Math.abs(v) < V_STOP && Math.abs(moved) > 0.15 && Math.abs(moved) < 0.5) {
+      v = Math.sign(moved) * V_STOP * 1.5;
     }
-    const snapped = Math.round(target);
+    let target: number | null = null; // 進入吸附階段後鎖定的整張牌位置
+    let last = performance.now();
 
-    // 停止動畫的時間由「距離 / 速度」決定:撥得快滑得遠也停得久,撥得慢很快就停
-    const dist = Math.abs(snapped - d.live);
-    const speed = Math.max(Math.abs(d.v), 0.0015);
-    const duration = Math.round(
-      Math.max(FLING_MIN_MS, Math.min(FLING_MAX_MS, (dist / speed) * 0.9))
-    );
-    const ease = "cubic-bezier(0.12, 0.7, 0.2, 1)"; // 先快後慢,像被摩擦力停下
-
-    btnRefs.current.forEach((el) => {
-      if (el) el.style.transition = `transform ${duration}ms ${ease}, opacity ${duration}ms ${ease}`;
-    });
-    requestAnimationFrame(() => {
-      applyLayout(snapped);
-      setOffset(snapped);
-      // 動畫結束後交還給 class 的預設 transition
-      setTimeout(() => {
-        btnRefs.current.forEach((el) => el && (el.style.transition = ""));
-      }, duration + 50);
-    });
+    const tick = (t: number) => {
+      const dt = Math.min(t - last, 48); // 分頁切走再回來時避免一次跳太遠
+      last = t;
+      if (target === null) {
+        o += v * dt;
+        v *= Math.exp(-dt / FRICTION_TAU_MS);
+        if (Math.abs(v) < V_STOP) {
+          // 剩餘滑行距離 ≈ v·τ,直接選定停在哪一張
+          target = Math.round(o + v * FRICTION_TAU_MS);
+        }
+      } else {
+        // 指數逼近整張牌位置(臨界阻尼,不會來回彈)
+        o += (target - o) * (1 - Math.exp(-dt / SETTLE_TAU_MS));
+        if (Math.abs(target - o) < 0.002) {
+          o = target;
+          applyLayout(o);
+          spinRef.current = 0;
+          btnRefs.current.forEach((el) => el && (el.style.transition = ""));
+          // offset 以 n 為週期,正規化避免數字無限長大(排版完全相同)
+          setOffset(((o % n) + n) % n);
+          return;
+        }
+      }
+      applyLayout(o);
+      spinRef.current = requestAnimationFrame(tick);
+    };
+    // 拖曳期間 transition 已關閉,慣性迴圈同樣逐幀寫入,結束後才交還給 class 的動畫
+    spinRef.current = requestAnimationFrame(tick);
   };
 
   const project = active !== null ? projects[active] : null;
