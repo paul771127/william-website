@@ -34,6 +34,8 @@ const CLOSE_MS = 380;
 const STEP_DEG = { mobile: 13, desktop: 11 };
 const RADIUS_RATIO = 2.1; // transform-origin: 50% 210%
 const DRAG_THRESHOLD = 8; // px,超過才算拖曳(否則視為點擊)
+const FLING_MS = 160; // 放手後依速度再滑多久(慣性)
+const FLING_MAX = 2; // 一次慣性最多滑幾張
 
 /** 由「面板目前位置」換算出「縮回卡牌位置」所需的 transform(transform-origin 為左上角) */
 function transformTo(panel: HTMLElement, target: Rect | null) {
@@ -48,6 +50,12 @@ function toSlot(i: number, offset: number, n: number) {
   return ((((s + n / 2) % n) + n) % n) - n / 2;
 }
 
+/** 離中心越遠越淡:中間 1、最外側約 0.27、繞到另一邊的瞬間 0(看不到跳接) */
+function fadeOf(slot: number, n: number) {
+  const t = Math.abs(slot) / (n / 2);
+  return Math.max(0, 1 - t * t);
+}
+
 export default function CardFan({ projects }: { projects: Project[] }) {
   const n = projects.length;
   const mid = (n - 1) / 2;
@@ -58,10 +66,19 @@ export default function CardFan({ projects }: { projects: Project[] }) {
 
   // 手牌轉動(以「槽位」為單位,1 = 一張牌的間距)
   const [offset, setOffset] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const dragRef = useRef<{ x: number; startOffset: number; pxPerSlot: number } | null>(null);
+  const dragRef = useRef<{
+    x: number;
+    startOffset: number;
+    pxPerSlot: number;
+    lastX: number;
+    lastT: number;
+    v: number; // 槽位/ms
+    raf: number;
+    live: number; // 拖曳中的即時 offset
+  } | null>(null);
   const movedRef = useRef(false); // 這次 pointer 有沒有拖曳過(用來吃掉隨後的 click)
   const prevSlotRef = useRef<number[]>([]);
+  const btnRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   // 展開面板狀態
   const [active, setActive] = useState<number | null>(null);
@@ -88,6 +105,22 @@ export default function CardFan({ projects }: { projects: Project[] }) {
     const r = el.getBoundingClientRect();
     return { x: r.left, y: r.top, w: r.width, h: r.height };
   };
+
+  /** 直接把某個 offset 的排版寫進 DOM(拖曳時用,不經過 React 重繪,才會順) */
+  const applyLayout = useCallback(
+    (o: number) => {
+      for (let i = 0; i < n; i++) {
+        const el = btnRefs.current[i];
+        if (!el) continue;
+        const slot = toSlot(i, o, n);
+        el.style.transform = `rotate(${slot * step}deg)`;
+        el.style.setProperty("--fade", String(fadeOf(slot, n)));
+        el.style.setProperty("--z", String(Math.round(slot + mid)));
+        prevSlotRef.current[i] = slot;
+      }
+    },
+    [n, step, mid]
+  );
 
   /** 把第 i 張牌轉到正中央(走最短方向) */
   const centerCard = useCallback(
@@ -196,7 +229,16 @@ export default function CardFan({ projects }: { projects: Project[] }) {
     const h = cardRefs.current[0]?.offsetHeight ?? 224;
     // 每個槽位在螢幕上大約的水平距離 = 半徑 × 角度(弧度)
     const pxPerSlot = h * RADIUS_RATIO * ((step * Math.PI) / 180);
-    dragRef.current = { x: e.clientX, startOffset: offset, pxPerSlot };
+    dragRef.current = {
+      x: e.clientX,
+      startOffset: offset,
+      pxPerSlot,
+      lastX: e.clientX,
+      lastT: e.timeStamp,
+      v: 0,
+      raf: 0,
+      live: offset,
+    };
     movedRef.current = false;
   };
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -206,24 +248,48 @@ export default function CardFan({ projects }: { projects: Project[] }) {
     if (!movedRef.current && Math.abs(dx) < DRAG_THRESHOLD) return;
     if (!movedRef.current) {
       movedRef.current = true;
-      setDragging(true);
       setSelected(null);
       e.currentTarget.setPointerCapture(e.pointerId);
+      // 拖曳期間關掉位移動畫,手指到哪牌就到哪
+      btnRefs.current.forEach((el) => el && (el.style.transition = "none"));
     }
-    setOffset(d.startOffset + dx / d.pxPerSlot);
+    // 速度估計(給放手後的慣性用)
+    const dt = e.timeStamp - d.lastT;
+    if (dt > 0) {
+      const inst = (e.clientX - d.lastX) / d.pxPerSlot / dt;
+      d.v = d.v * 0.6 + inst * 0.4;
+      d.lastX = e.clientX;
+      d.lastT = e.timeStamp;
+    }
+    d.live = d.startOffset + dx / d.pxPerSlot;
+    if (!d.raf) {
+      d.raf = requestAnimationFrame(() => {
+        d.raf = 0;
+        applyLayout(d.live);
+      });
+    }
   };
-  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+  const endDrag = () => {
     const d = dragRef.current;
     dragRef.current = null;
     if (!d || !movedRef.current) return;
-    const dx = e.clientX - d.x;
-    let target = d.startOffset + dx / d.pxPerSlot;
-    // 輕滑(不到半格)也至少換一張,手感比較像翻牌
-    if (Math.abs(target - d.startOffset) < 0.5 && Math.abs(dx) > 24) {
-      target = d.startOffset + Math.sign(dx);
+    if (d.raf) cancelAnimationFrame(d.raf);
+    applyLayout(d.live);
+
+    // 慣性:依放手瞬間的速度再往前滑一小段,再吸附到最近的一張
+    let target = d.live + Math.max(-FLING_MAX, Math.min(FLING_MAX, d.v * FLING_MS));
+    // 輕撥(不到半格)也至少換一張,手感比較像翻牌
+    if (Math.abs(target - d.startOffset) < 0.5 && Math.abs(d.live - d.startOffset) > 0.15) {
+      target = d.startOffset + Math.sign(d.live - d.startOffset);
     }
-    setOffset(Math.round(target));
-    setDragging(false);
+    const snapped = Math.round(target);
+
+    // 恢復動畫後,下一幀再寫入吸附位置,讓它從目前位置滑過去
+    btnRefs.current.forEach((el) => el && (el.style.transition = ""));
+    requestAnimationFrame(() => {
+      applyLayout(snapped);
+      setOffset(snapped);
+    });
   };
 
   const project = active !== null ? projects[active] : null;
@@ -246,17 +312,14 @@ export default function CardFan({ projects }: { projects: Project[] }) {
         {projects.map((p, i) => {
           const slot = toSlot(i, offset, n);
           const angle = slot * step;
-          // 超過最外側槽位(正在繞到另一邊)的牌淡出,避免看到跳接
-          const beyond = Math.abs(slot) - mid;
-          const opacity = beyond <= 0 ? 1 : Math.max(0, 1 - beyond / (n / 2 - mid));
+          const fade = fadeOf(slot, n);
           // 剛從另一邊繞回來的牌不要做位移動畫,否則會橫掃整個扇形
           const jumped = Math.abs(slot - (prevSlotRef.current[i] ?? slot)) > 1;
           prevSlotRef.current[i] = slot;
           // 用 class 而不是 inline style 控制 transition:inline 的時間字串在 WebKit 會被序列化成秒,造成 hydration 警告
-          const transitionClass =
-            dragging || jumped
-              ? "transition-none"
-              : "transition-[transform,opacity] duration-[380ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]";
+          const transitionClass = jumped
+            ? "transition-none"
+            : "transition-[transform,opacity] duration-[380ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]";
 
           const icon = icons[p.slug] ?? "📦";
           const isSelected = selected === i;
@@ -265,6 +328,9 @@ export default function CardFan({ projects }: { projects: Project[] }) {
             <button
               type="button"
               key={p.slug}
+              ref={(el) => {
+                btnRefs.current[i] = el;
+              }}
               aria-label={p.title}
               aria-expanded={isActive}
               onClick={(e) => {
@@ -282,18 +348,19 @@ export default function CardFan({ projects }: { projects: Project[] }) {
                 openCard(i);
               }}
               className={
-                "group absolute bottom-12 sm:bottom-16 left-1/2 -ml-[4.5rem] sm:-ml-[5rem] outline-none cursor-pointer " +
+                "group absolute bottom-12 sm:bottom-16 left-1/2 -ml-[4.5rem] sm:-ml-[5rem] outline-none cursor-pointer will-change-transform " +
                 "z-(--z) hover:z-50 focus-visible:z-50 " +
+                "opacity-(--fade) hover:opacity-100 focus-visible:opacity-100 " +
                 transitionClass +
-                (isSelected ? " z-50" : "")
+                (isSelected ? " z-50 opacity-100" : "")
               }
               style={
                 {
                   transform: `rotate(${angle}deg)`,
                   transformOrigin: `50% ${RADIUS_RATIO * 100}%`,
-                  opacity,
                   // 疊放順序跟著環狀位置走(右邊的牌壓在左邊的牌上)
                   "--z": Math.round(slot + mid),
+                  "--fade": fade,
                 } as React.CSSProperties
               }
             >
