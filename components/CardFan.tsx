@@ -44,7 +44,7 @@ function transformTo(panel: HTMLElement, target: Rect | null) {
 
 /** 把「第 i 張牌 + 轉動偏移」換算成環狀的槽位(-N/2 ~ N/2),超出邊緣就從另一邊回來 */
 function toSlot(i: number, offset: number, n: number) {
-  const s = i + offset;
+  const s = i - (n - 1) / 2 + offset;
   return ((((s + n / 2) % n) + n) % n) - n / 2;
 }
 
@@ -252,10 +252,11 @@ export default function CardFan({ projects }: { projects: Project[] }) {
           // 剛從另一邊繞回來的牌不要做位移動畫,否則會橫掃整個扇形
           const jumped = Math.abs(slot - (prevSlotRef.current[i] ?? slot)) > 1;
           prevSlotRef.current[i] = slot;
-          const transition =
+          // 用 class 而不是 inline style 控制 transition:inline 的時間字串在 WebKit 會被序列化成秒,造成 hydration 警告
+          const transitionClass =
             dragging || jumped
-              ? "none"
-              : "transform 380ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 380ms";
+              ? "transition-none"
+              : "transition-[transform,opacity] duration-[380ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]";
 
           const icon = icons[p.slug] ?? "📦";
           const isSelected = selected === i;
@@ -282,7 +283,8 @@ export default function CardFan({ projects }: { projects: Project[] }) {
               }}
               className={
                 "group absolute bottom-12 sm:bottom-16 left-1/2 -ml-[4.5rem] sm:-ml-[5rem] outline-none cursor-pointer " +
-                "z-(--z) hover:z-50 focus-visible:z-50" +
+                "z-(--z) hover:z-50 focus-visible:z-50 " +
+                transitionClass +
                 (isSelected ? " z-50" : "")
               }
               style={
@@ -290,7 +292,6 @@ export default function CardFan({ projects }: { projects: Project[] }) {
                   transform: `rotate(${angle}deg)`,
                   transformOrigin: `50% ${RADIUS_RATIO * 100}%`,
                   opacity,
-                  transition,
                   // 疊放順序跟著環狀位置走(右邊的牌壓在左邊的牌上)
                   "--z": Math.round(slot + mid),
                 } as React.CSSProperties

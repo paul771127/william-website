@@ -19,7 +19,11 @@ export default function ChatWidget() {
 
   useEffect(() => {
     if (!sessionIdRef.current) {
-      sessionIdRef.current = crypto.randomUUID();
+      // crypto.randomUUID 只在安全來源(https / localhost)可用;區網 http 測試時要退回自製 id
+      sessionIdRef.current =
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     }
   }, []);
 

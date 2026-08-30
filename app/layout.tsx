@@ -14,7 +14,8 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="zh-Hant">
+    // suppressHydrationWarning:iOS Chrome 等瀏覽器會自行在 <html> 加屬性,避免無意義的 hydration 警告
+    <html lang="zh-Hant" suppressHydrationWarning>
       <body className="min-h-screen flex flex-col antialiased">
         <Navbar />
         <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6">
