@@ -76,10 +76,8 @@ export default function CardFan({ projects }: { projects: Project[] }) {
   // 觸控裝置(無滑鼠懸停):第一下抽牌、第二下才展開
   const [canHover, setCanHover] = useState(true);
   const [isDesktop, setIsDesktop] = useState(true);
-  const [selected, setSelected] = useState<number | null>(null);
-  // 預覽卡淡出時仍要顯示上一次選的內容,所以另外記住最後一次的選擇
-  const lastSelectedRef = useRef<number | null>(null);
-  if (selected !== null) lastSelectedRef.current = selected;
+  // 輪盤是否在動(拖曳或慣性滑行中):動的時候中央牌不抽高、上方簡介卡先淡出
+  const [wheelBusy, setWheelBusy] = useState(false);
 
   // 手牌轉動(以「槽位」為單位,1 = 一張牌的間距)
   const [offset, setOffset] = useState(0);
@@ -167,7 +165,6 @@ export default function CardFan({ projects }: { projects: Project[] }) {
       originRef.current = measure(i);
       setActive(i);
       setPhase("opening");
-      setSelected(null);
       if (pushHistory) {
         window.history.pushState({ card: projects[i].slug }, "", `/portfolio#${projects[i].slug}`);
         pushedRef.current = true;
@@ -267,6 +264,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
       cancelAnimationFrame(spinRef.current);
       spinRef.current = 0;
       btnRefs.current.forEach((el) => el && (el.style.transition = "none"));
+      setWheelBusy(true);
     }
     const start = liveOffsetRef.current;
     dragRef.current = {
@@ -288,7 +286,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
     if (!movedRef.current && Math.abs(dx) < DRAG_THRESHOLD) return;
     if (!movedRef.current) {
       movedRef.current = true;
-      setSelected(null);
+      setWheelBusy(true);
       e.currentTarget.setPointerCapture(e.pointerId);
       // 拖曳期間關掉位移動畫,手指到哪牌就到哪
       btnRefs.current.forEach((el) => el && (el.style.transition = "none"));
@@ -356,6 +354,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
           btnRefs.current.forEach((el) => el && (el.style.transition = ""));
           // offset 以 n 為週期,正規化避免數字無限長大(排版完全相同)
           setOffset(((o % n) + n) % n);
+          setWheelBusy(false);
           return;
         }
       }
@@ -378,10 +377,6 @@ export default function CardFan({ projects }: { projects: Project[] }) {
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
-        onClick={(e) => {
-          // 點到背景空白處收回抽出的牌
-          if (e.target === e.currentTarget) setSelected(null);
-        }}
       >
         {projects.map((p, i) => {
           const slot = toSlot(i, offset, n);
@@ -396,7 +391,9 @@ export default function CardFan({ projects }: { projects: Project[] }) {
             : "transition-[transform,opacity] duration-[380ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]";
 
           const icon = icons[p.slug] ?? "📦";
-          const isSelected = selected === i;
+          // 手機:停在正中央的牌自動微抽高、亮邊框(不用點)
+          const isCentered =
+            !canHover && !wheelBusy && active === null && Math.abs(slot) < 0.01;
           const isActive = active === i;
           return (
             <button
@@ -414,8 +411,8 @@ export default function CardFan({ projects }: { projects: Project[] }) {
                   movedRef.current = false;
                   return;
                 }
-                if (!canHover && !isSelected) {
-                  setSelected(i);
+                if (!canHover && !isCentered) {
+                  // 點旁邊的牌 → 轉到中央(簡介會跟著換),點中央那張才展開
                   centerCard(i);
                   return;
                 }
@@ -426,7 +423,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
                 "z-(--z) hover:z-50 focus-visible:z-50 " +
                 "opacity-(--fade) hover:opacity-100 focus-visible:opacity-100 " +
                 transitionClass +
-                (isSelected ? " z-50 opacity-100" : "")
+                (isCentered ? " z-50 opacity-100" : "")
               }
               style={
                 {
@@ -452,7 +449,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
                   "group-hover:-translate-y-8 sm:group-hover:-translate-y-12 " +
                   "group-hover:border-sky-400/70 group-hover:shadow-sky-500/25 " +
                   "group-focus-visible:-translate-y-8 sm:group-focus-visible:-translate-y-12 group-focus-visible:border-sky-400 " +
-                  (isSelected
+                  (isCentered
                     ? "-translate-y-10 scale-105 border-sky-400 shadow-sky-500/40 "
                     : "border-white/15 ") +
                   // 被展開的那張牌從手牌中「抽走」
@@ -465,7 +462,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
                 <div
                   className={
                     "text-center text-4xl sm:text-5xl transition-opacity group-hover:opacity-90 " +
-                    (isSelected ? "opacity-90" : "opacity-50")
+                    (isCentered ? "opacity-90" : "opacity-50")
                   }
                 >
                   {icon}
@@ -477,10 +474,10 @@ export default function CardFan({ projects }: { projects: Project[] }) {
                   <p
                     className={
                       "text-[11px] text-sky-300 mt-1 transition-opacity group-hover:opacity-100 " +
-                      (isSelected ? "opacity-100" : "opacity-0")
+                      (isCentered ? "opacity-100" : "opacity-0")
                     }
                   >
-                    {canHover ? "點擊展開 →" : "再點一下展開 →"}
+                    點擊展開 →
                   </p>
                 </div>
 
@@ -490,7 +487,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
                   className={
                     "absolute inset-0 rounded-2xl bg-[#0a0e14] pointer-events-none " +
                     "opacity-(--veil) group-hover:opacity-0 group-focus-visible:opacity-0" +
-                    (isSelected ? " opacity-0" : "")
+                    (isCentered ? " opacity-0" : "")
                   }
                 />
               </div>
@@ -498,19 +495,18 @@ export default function CardFan({ projects }: { projects: Project[] }) {
           );
         })}
 
-        {/* 手機:點一下抽牌時,上方淡入專案簡介(左文字、右 GIF) */}
+        {/* 手機:停在中央的那張牌,上方自動淡入專案簡介(左文字、右 GIF);轉動中先淡出 */}
         {!canHover &&
           (() => {
-            const pi = lastSelectedRef.current;
-            const pp = pi !== null ? projects[pi] : null;
+            // 中央牌 = 槽位 0 的那張:i - mid + offset = 0
+            const ci = ((Math.round(mid - offset) % n) + n) % n;
+            const pp = projects[ci];
             if (!pp) return null;
-            const visible = selected !== null && active === null;
+            const visible = !wheelBusy && active === null;
             const gif = pp.gif_url ?? pp.image_url;
             return (
               <div
-                onClick={() => {
-                  if (selected !== null) openCard(selected);
-                }}
+                onClick={() => openCard(ci)}
                 className={
                   "absolute top-0 left-1/2 -translate-x-1/2 w-[94%] max-w-md z-[60] " +
                   "rounded-2xl border border-sky-400/40 bg-slate-900/95 shadow-lg shadow-black/50 " +
@@ -523,7 +519,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
                   <p className="text-xs text-gray-400 mt-1 leading-relaxed line-clamp-3">
                     {pp.summary}
                   </p>
-                  <p className="text-[11px] text-sky-300 mt-1">再點一下展開 →</p>
+                  <p className="text-[11px] text-sky-300 mt-1">點牌或點這裡展開 →</p>
                 </div>
                 <div className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border border-white/10 bg-black/40 flex items-center justify-center">
                   {gif ? (
