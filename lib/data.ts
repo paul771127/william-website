@@ -5,6 +5,7 @@ export type Project = {
   summary: string;
   description: string | null;
   image_url: string | null;
+  gif_url?: string | null; // 手機點選預覽用的 GIF/動圖(未設定時顯示 icon 佔位)
   tags: string[];
   sort_order: number;
 };

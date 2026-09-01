@@ -77,6 +77,9 @@ export default function CardFan({ projects }: { projects: Project[] }) {
   const [canHover, setCanHover] = useState(true);
   const [isDesktop, setIsDesktop] = useState(true);
   const [selected, setSelected] = useState<number | null>(null);
+  // 預覽卡淡出時仍要顯示上一次選的內容,所以另外記住最後一次的選擇
+  const lastSelectedRef = useRef<number | null>(null);
+  if (selected !== null) lastSelectedRef.current = selected;
 
   // 手牌轉動(以「槽位」為單位,1 = 一張牌的間距)
   const [offset, setOffset] = useState(0);
@@ -494,6 +497,45 @@ export default function CardFan({ projects }: { projects: Project[] }) {
             </button>
           );
         })}
+
+        {/* 手機:點一下抽牌時,上方淡入專案簡介(左文字、右 GIF) */}
+        {!canHover &&
+          (() => {
+            const pi = lastSelectedRef.current;
+            const pp = pi !== null ? projects[pi] : null;
+            if (!pp) return null;
+            const visible = selected !== null && active === null;
+            const gif = pp.gif_url ?? pp.image_url;
+            return (
+              <div
+                onClick={() => {
+                  if (selected !== null) openCard(selected);
+                }}
+                className={
+                  "absolute top-0 left-1/2 -translate-x-1/2 w-[94%] max-w-md z-[60] " +
+                  "rounded-2xl border border-sky-400/40 bg-slate-900/95 shadow-lg shadow-black/50 " +
+                  "p-3 flex items-center gap-3 transition-all duration-300 " +
+                  (visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none")
+                }
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold leading-snug">{pp.title}</p>
+                  <p className="text-xs text-gray-400 mt-1 leading-relaxed line-clamp-3">
+                    {pp.summary}
+                  </p>
+                  <p className="text-[11px] text-sky-300 mt-1">再點一下展開 →</p>
+                </div>
+                <div className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border border-white/10 bg-black/40 flex items-center justify-center">
+                  {gif ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={gif} alt={pp.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-3xl animate-bounce">{icons[pp.slug] ?? "📦"}</span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
       </div>
 
       {/* 展開的卡牌面板 */}
