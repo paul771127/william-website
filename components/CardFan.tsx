@@ -48,7 +48,10 @@ const MOBILE_VISIBLE = 5; // 手機同時看得到的牌數(其餘在環上但�
 // 慣性(整個輪盤):放手後速度以 exp(-t/τ) 衰減,τ 越大轉越久;慢到 V_STOP 以下就滑進最近的一張
 const FRICTION_TAU_MS = 550;
 const V_STOP = 0.0012; // 槽位/ms
-const SETTLE_TAU_MS = 140; // 最後吸附到整張牌的時間常數
+const SETTLE_TAU_MS = 110; // 最後吸附到整張牌的時間常數
+const SNAP_MAX_MS = 220; // 吸附階段的時間常數上限(越小咬得越快)
+const SNAP_EPS = 0.008; // 差距小於此值就直接歸位(0.008 槽 ≈ 0.1°,肉眼看不出來)
+const SNAP_PULL = 0.28; // 拖曳中往最近一張的磁吸強度(0 = 沒有吸力)
 const V_MAX = 0.03; // 速度上限(槽位/ms),避免一撥飛太快
 
 /** 由「面板目前位置」換算出「縮回卡牌位置」所需的 transform(transform-origin 為左上角) */
@@ -62,6 +65,16 @@ function transformTo(panel: HTMLElement, target: Rect | null) {
 function toSlot(i: number, offset: number, n: number) {
   const s = i - (n - 1) / 2 + offset;
   return ((((s + n / 2) % n) + n) % n) - n / 2;
+}
+
+/**
+ * 拖曳中的磁吸(detent):把位置往最近一張牌拉一點,牌會「想」停在正中間。
+ * 用 sin 波做,在兩張牌正中間(f = ±0.5)吸力為 0,所以不會有跳動。
+ */
+function detent(x: number) {
+  const base = Math.round(x);
+  const f = x - base;
+  return base + f - (SNAP_PULL * Math.sin(2 * Math.PI * f)) / (2 * Math.PI);
 }
 
 /** 離中心越遠越淡:中間 1,到可視範圍邊緣(half 個槽位)降到 0;範圍外的牌完全透明 */
@@ -296,7 +309,8 @@ export default function CardFan({ projects }: { projects: Project[] }) {
       d.lastX = e.clientX;
       d.lastT = e.timeStamp;
     }
-    d.live = d.startOffset + dx / d.pxPerSlot;
+    // 磁吸:手指拖到哪,位置會被往最近一張牌拉一點,比較容易停在正中間
+    d.live = detent(d.startOffset + dx / d.pxPerSlot);
     if (!d.raf) {
       d.raf = requestAnimationFrame(() => {
         d.raf = 0;
@@ -330,21 +344,24 @@ export default function CardFan({ projects }: { projects: Project[] }) {
         o += v * dt;
         v *= Math.exp(-dt / FRICTION_TAU_MS);
         if (Math.abs(v) < V_STOP) {
-          // 剩餘滑行距離 ≈ v·τ,選定停在哪一張;一定要在前進方向上,不能倒退
-          let tgt = Math.round(o + v * FRICTION_TAU_MS);
-          if ((tgt - o) * v <= 0) tgt = v > 0 ? Math.ceil(o) : Math.floor(o);
-          target = tgt;
-          // 時間常數 = 距離 / 速度 → 吸附階段的初速剛好等於目前速度,不會突然加速
+          // 預測滑行終點,吸附到「最近」的一張(慢慢轉時才停得準)
           const speed = Math.abs(v);
+          let tgt = Math.round(o + v * FRICTION_TAU_MS);
+          // 還有明顯速度時不要倒退回去,免得撥出去又被彈回來
+          if (speed > V_STOP * 0.5 && (tgt - o) * v < 0) {
+            tgt = v > 0 ? Math.ceil(o) : Math.floor(o);
+          }
+          target = tgt;
+          // 時間常數 = 距離 / 速度 → 接軌時速度連續;上限壓低讓它俐落地咬進定位
           settleTau =
             speed < 1e-4
               ? SETTLE_TAU_MS
-              : Math.max(60, Math.min(FRICTION_TAU_MS, Math.abs(tgt - o) / speed));
+              : Math.max(70, Math.min(SNAP_MAX_MS, Math.abs(tgt - o) / speed));
         }
       } else {
         // 指數逼近整張牌位置(臨界阻尼,不會來回彈)
         o += (target - o) * (1 - Math.exp(-dt / settleTau));
-        if (Math.abs(target - o) < 0.002) {
+        if (Math.abs(target - o) < SNAP_EPS) {
           o = target;
           applyLayout(o);
           spinRef.current = 0;
