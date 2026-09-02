@@ -368,7 +368,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
   return (
     <>
       <div
-        className="relative h-[27rem] sm:h-[33rem] select-none"
+        className="relative h-[29rem] sm:h-[35rem] select-none"
         style={{ touchAction: "pan-y" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -502,10 +502,11 @@ export default function CardFan({ projects }: { projects: Project[] }) {
               <div
                 onClick={() => openCard(ci)}
                 className={
-                  "absolute top-0 left-1/2 -translate-x-1/2 w-[94%] max-w-md z-[60] " +
+                  // 貼在抽高卡牌的上緣:牌頂距容器底部 = bottom(3/4rem)+牌高(14/18rem)+抽高(2/3rem)
+                  "absolute bottom-[20rem] sm:bottom-[26rem] left-1/2 -translate-x-1/2 w-[94%] max-w-md z-[60] " +
                   "rounded-2xl border border-sky-400/40 bg-slate-900/95 shadow-lg shadow-black/50 " +
                   "p-3 flex items-center gap-3 transition-all duration-300 " +
-                  (visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none")
+                  (visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3 pointer-events-none")
                 }
               >
                 <div className="flex-1 min-w-0">
