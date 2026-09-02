@@ -51,6 +51,9 @@ const V_STOP = 0.0012; // 槽位/ms
 const SETTLE_TAU_MS = 110; // 最後吸附到整張牌的時間常數
 const SNAP_MAX_MS = 220; // 吸附階段的時間常數上限(越小咬得越快)
 const SNAP_EPS = 0.008; // 差距小於此值就直接歸位(0.008 槽 ≈ 0.1°,肉眼看不出來)
+// 簡介卡的顯示條件:離中央夠近 + 轉得夠慢(不必等吸附跑完)
+const CENTER_EPS = 0.18; // 槽位
+const CENTER_V = 0.0025; // 槽位/ms
 const SNAP_PULL = 0.28; // 拖曳中往最近一張的磁吸強度(0 = 沒有吸力)
 const V_MAX = 0.03; // 速度上限(槽位/ms),避免一撥飛太快
 
@@ -87,8 +90,14 @@ export default function CardFan({ projects }: { projects: Project[] }) {
   const n = projects.length;
   const mid = (n - 1) / 2;
   const [isDesktop, setIsDesktop] = useState(true);
-  // 輪盤是否在動(拖曳或慣性滑行中):動的時候中央牌不抽高、上方簡介卡先淡出
-  const [wheelBusy, setWheelBusy] = useState(false);
+  // 目前「算是停在中央」的那張牌(null = 輪盤還在動)。不等吸附完全結束,
+  // 只要夠靠近中央且轉得夠慢就先亮起來,簡介才不會慢半拍。
+  const [centerIdx, setCenterIdx] = useState<number | null>(
+    () => ((Math.round((projects.length - 1) / 2) % projects.length) + projects.length) % projects.length
+  );
+  // 淡出期間仍要顯示上一張的內容,所以記住最後一次的中央牌
+  const lastCenterRef = useRef<number | null>(null);
+  if (centerIdx !== null) lastCenterRef.current = centerIdx;
 
   // 手牌轉動(以「槽位」為單位,1 = 一張牌的間距)
   const [offset, setOffset] = useState(0);
@@ -162,10 +171,24 @@ export default function CardFan({ projects }: { projects: Project[] }) {
     [n, step, mid, visibleHalf]
   );
 
+  /** 依「目前位置 + 速度」即時判斷哪張牌算停在中央(轉太快或離太遠 → null) */
+  const updateCenter = useCallback(
+    (o: number, speed: number) => {
+      const nearest = Math.round(o);
+      const idx =
+        speed <= CENTER_V && Math.abs(o - nearest) <= CENTER_EPS
+          ? (((Math.round(mid - nearest) % n) + n) % n)
+          : null;
+      setCenterIdx((prev) => (prev === idx ? prev : idx));
+    },
+    [mid, n]
+  );
+
   /** 把第 i 張牌轉到正中央(走最短方向) */
   const centerCard = useCallback(
     (i: number) => {
       setOffset((o) => o - toSlot(i, o, n));
+      setCenterIdx(i); // 牌滑向中央的同時簡介就換過去,不用等動畫跑完
     },
     [n]
   );
@@ -274,7 +297,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
       cancelAnimationFrame(spinRef.current);
       spinRef.current = 0;
       btnRefs.current.forEach((el) => el && (el.style.transition = "none"));
-      setWheelBusy(true);
+      setCenterIdx(null);
     }
     const start = liveOffsetRef.current;
     dragRef.current = {
@@ -296,7 +319,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
     if (!movedRef.current && Math.abs(dx) < DRAG_THRESHOLD) return;
     if (!movedRef.current) {
       movedRef.current = true;
-      setWheelBusy(true);
+      setCenterIdx(null);
       e.currentTarget.setPointerCapture(e.pointerId);
       // 拖曳期間關掉位移動畫,手指到哪牌就到哪
       btnRefs.current.forEach((el) => el && (el.style.transition = "none"));
@@ -315,6 +338,8 @@ export default function CardFan({ projects }: { projects: Project[] }) {
       d.raf = requestAnimationFrame(() => {
         d.raf = 0;
         applyLayout(d.live);
+        // 拖曳中慢慢移到某張牌附近就先亮簡介
+        updateCenter(d.live, Math.abs(d.v));
       });
     }
   };
@@ -361,6 +386,8 @@ export default function CardFan({ projects }: { projects: Project[] }) {
       } else {
         // 指數逼近整張牌位置(臨界阻尼,不會來回彈)
         o += (target - o) * (1 - Math.exp(-dt / settleTau));
+        // 收尾階段已經確定停在哪張,靠近就先亮簡介,不必等歸位跑完
+        updateCenter(o, 0);
         if (Math.abs(target - o) < SNAP_EPS) {
           o = target;
           applyLayout(o);
@@ -368,7 +395,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
           btnRefs.current.forEach((el) => el && (el.style.transition = ""));
           // offset 以 n 為週期,正規化避免數字無限長大(排版完全相同)
           setOffset(((o % n) + n) % n);
-          setWheelBusy(false);
+          updateCenter(o, 0);
           return;
         }
       }
@@ -407,7 +434,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
           const icon = icons[p.slug] ?? "📦";
           // 停在正中央的牌自動微抽高、亮邊框、淡入上方簡介
           const isCentered =
-            !wheelBusy && active === null && Math.abs(slot) < 0.01;
+            centerIdx === i && active === null;
           const isActive = active === i;
           return (
             <button
@@ -509,11 +536,12 @@ export default function CardFan({ projects }: { projects: Project[] }) {
 
         {/* 停在中央的那張牌,上方自動淡入專案簡介(左文字、右 GIF);轉動中先淡出 */}
         {(() => {
-          // 中央牌 = 槽位 0 的那張:i - mid + offset = 0
-          const ci = ((Math.round(mid - offset) % n) + n) % n;
+          // 中央牌:轉動中 centerIdx 為 null,改用上一張讓簡介平順淡出
+          const ci = centerIdx ?? lastCenterRef.current;
+          if (ci === null) return null;
           const pp = projects[ci];
           if (!pp) return null;
-          const visible = !wheelBusy && active === null;
+          const visible = centerIdx !== null && active === null;
           const gif = pp.gif_url ?? pp.image_url;
           return (
               <div
