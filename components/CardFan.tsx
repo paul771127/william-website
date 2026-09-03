@@ -34,6 +34,12 @@ function fadeLayers(fade: number) {
   return { veil: 1 - fade, alpha: Math.min(1, fade / 0.25) };
 }
 
+/** 可直接用 <video> 播的檔案;其餘(YouTube/Vimeo 等)走 iframe 嵌入 */
+function isVideoFile(url: string) {
+  const u = url.toLowerCase();
+  return [".mp4", ".webm", ".mov", ".m4v"].some((ext) => u.includes(ext));
+}
+
 type Rect = { x: number; y: number; w: number; h: number };
 type Phase = "closed" | "opening" | "open" | "closing";
 
@@ -266,7 +272,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
     if (!el) return;
     if (phase === "opening") {
       el.style.transition = "none";
-      el.style.transform = transformTo(el, originRef.current);
+      el.style.transform = transformTo(el, originRef.current) + " rotateY(-42deg) rotateX(10deg)";
       void el.offsetWidth; // 強制 reflow,讓起始狀態生效
       el.style.transition = "";
       const raf = requestAnimationFrame(() => {
@@ -276,7 +282,8 @@ export default function CardFan({ projects }: { projects: Project[] }) {
       return () => cancelAnimationFrame(raf);
     }
     if (phase === "closing") {
-      el.style.transform = transformTo(el, active !== null ? measure(active) : null);
+      el.style.transform =
+        transformTo(el, active !== null ? measure(active) : null) + " rotateY(32deg) rotateX(-8deg)";
       const t = setTimeout(() => {
         setActive(null);
         setPhase("closed");
@@ -412,7 +419,10 @@ export default function CardFan({ projects }: { projects: Project[] }) {
   return (
     <>
       <div
-        className="relative h-[29rem] sm:h-[35rem] select-none"
+        className={
+          "relative h-[29rem] sm:h-[35rem] select-none transition-all duration-500 " +
+          (active !== null ? "scale-95 blur-sm opacity-40" : "scale-100 opacity-100")
+        }
         style={{ touchAction: "pan-y" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -582,10 +592,42 @@ export default function CardFan({ projects }: { projects: Project[] }) {
             "bg-black/70 backdrop-blur-sm transition-opacity duration-300 " +
             (showing ? "opacity-100" : "opacity-0")
           }
+          style={{ perspective: "1600px" }}
           onClick={(e) => {
             if (e.target === e.currentTarget) requestClose();
           }}
         >
+          {/* 背後的徑向光暈 */}
+          <div
+            aria-hidden
+            className={
+              "fx-halo pointer-events-none absolute inset-0 " +
+              "bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.22),transparent_62%)]"
+            }
+          />
+
+          {/* 火花迸發:展開瞬間往外散開 */}
+          {phase !== "closing" && (
+            <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center z-[110]">
+              {Array.from({ length: 14 }).map((_, k) => {
+                const a = (k / 14) * Math.PI * 2;
+                const r = 150 + (k % 4) * 46;
+                return (
+                  <span
+                    key={`sp--`}
+                    className="fx-spark absolute w-1.5 h-1.5 rounded-full bg-sky-300 shadow-[0_0_10px_3px_rgba(56,189,248,0.85)]"
+                    style={
+                      {
+                        "--sx": `px`,
+                        "--sy": `px`,
+                        animationDelay: `ms`,
+                      } as React.CSSProperties
+                    }
+                  />
+                );
+              })}
+            </div>
+          )}
           <div
             ref={panelRef}
             role="dialog"
@@ -599,11 +641,27 @@ export default function CardFan({ projects }: { projects: Project[] }) {
               willChange: "transform",
             }}
             className={
-              `w-full max-w-3xl h-full max-h-[88dvh] sm:max-h-[85vh] rounded-2xl border border-sky-400/60 ` +
+              `relative w-full max-w-3xl h-full max-h-[88dvh] sm:max-h-[85vh] rounded-2xl border border-sky-400/60 ` +
               `bg-gradient-to-br ${faces[active % faces.length]} shadow-2xl shadow-sky-500/20 ` +
               "overflow-hidden flex flex-col"
             }
           >
+            {/* 展開瞬間:光掃過牌面 + 邊框輝光脈動 */}
+            {phase !== "closing" && (
+              <>
+                <div
+                  key={`shine-`}
+                  aria-hidden
+                  className="fx-shine pointer-events-none absolute inset-y-0 left-0 w-1/4 z-30 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                />
+                <div
+                  key={`glow-`}
+                  aria-hidden
+                  className="fx-glow pointer-events-none absolute inset-0 z-30 rounded-2xl"
+                />
+              </>
+            )}
+
             {/* 卡牌頂部 / 主視覺 */}
             <div className="relative shrink-0 h-40 sm:h-56 bg-black/30 flex items-center justify-center">
               {project.image_url ? (
@@ -635,8 +693,8 @@ export default function CardFan({ projects }: { projects: Project[] }) {
               }
             >
               <div className="space-y-3">
-                <h2 className="text-2xl sm:text-3xl font-bold">{project.title}</h2>
-                <div className="flex flex-wrap gap-2">
+                <h2 className="fx-rise text-2xl sm:text-3xl font-bold">{project.title}</h2>
+                <div className="fx-rise flex flex-wrap gap-2" style={{ animationDelay: "90ms" }}>
                   {project.tags?.map((t) => (
                     <span
                       key={t}
@@ -646,9 +704,47 @@ export default function CardFan({ projects }: { projects: Project[] }) {
                     </span>
                   ))}
                 </div>
-                <p className="text-base sm:text-lg text-gray-200 leading-relaxed">
+                <p
+                  className="fx-rise text-base sm:text-lg text-gray-200 leading-relaxed"
+                  style={{ animationDelay: "170ms" }}
+                >
                   {project.summary}
                 </p>
+              </div>
+
+              {/* 展示影片:填了 video_url 就播放,沒填先留佔位框 */}
+              <div
+                className="fx-rise border-t border-white/10 pt-5"
+                style={{ animationDelay: "240ms" }}
+              >
+                <p className="text-xs uppercase tracking-widest text-sky-300/80 mb-2">Demo</p>
+                <div className="aspect-video w-full rounded-xl overflow-hidden border border-white/10 bg-black/50 flex items-center justify-center">
+                  {project.video_url ? (
+                    isVideoFile(project.video_url) ? (
+                      <video
+                        src={project.video_url}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        poster={project.image_url ?? undefined}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <iframe
+                        src={project.video_url}
+                        title={` 展示影片`}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="w-full h-full"
+                      />
+                    )
+                  ) : (
+                    <div className="text-center text-gray-500 text-sm px-4">
+                      <div className="text-3xl mb-1">🎬</div>
+                      展示影片位置(準備中)
+                    </div>
+                  )}
+                </div>
               </div>
 
               {project.description ? (

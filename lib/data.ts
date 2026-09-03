@@ -6,6 +6,7 @@ export type Project = {
   description: string | null;
   image_url: string | null;
   gif_url?: string | null; // 手機點選預覽用的 GIF/動圖(未設定時顯示 icon 佔位)
+  video_url?: string | null; // 展示影片(mp4 直連 或 YouTube/Vimeo 嵌入網址)
   tags: string[];
   sort_order: number;
 };
