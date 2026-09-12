@@ -495,22 +495,22 @@ export default function CardFan({ projects }: { projects: Project[] }) {
                 }}
                 className={
                   `relative w-36 h-56 sm:w-40 sm:h-72 rounded-2xl border bg-gradient-to-br ${faces[i % faces.length]} ` +
-                  "shadow-xl shadow-black/50 p-3 sm:p-4 flex flex-col justify-between " +
+                  "card-frame card-sheen p-3 sm:p-4 flex flex-col justify-between " +
                   "transition-all duration-300 ease-out " +
                   "group-focus-visible:-translate-y-8 sm:group-focus-visible:-translate-y-12 group-focus-visible:border-sky-400 " +
                   (isCentered
-                    ? "-translate-y-8 sm:-translate-y-12 border-sky-400/70 shadow-sky-500/25 "
-                    : "border-white/15 ") +
+                    ? "card-emboss-lift -translate-y-8 sm:-translate-y-12 border-sky-400/70 "
+                    : "card-emboss border-white/15 ") +
                   // 被展開的那張牌從手牌中「抽走」
                   (isActive && phase !== "closed" ? "opacity-0" : "opacity-100")
                 }
               >
                 {/* 左上角小圖示:牌疊起來時仍露出的牌角 */}
-                <div className="text-lg sm:text-xl">{icon}</div>
+                <div className="icon-emboss relative z-[1] text-lg sm:text-xl">{icon}</div>
 
                 <div
                   className={
-                    "text-center text-4xl sm:text-5xl transition-opacity group-hover:opacity-90 " +
+                    "icon-emboss relative z-[1] text-center text-4xl sm:text-5xl transition-opacity group-hover:opacity-90 " +
                     (isCentered ? "opacity-90" : "opacity-50")
                   }
                 >
@@ -518,8 +518,8 @@ export default function CardFan({ projects }: { projects: Project[] }) {
                 </div>
 
                 {/* 文字集中在牌的左側:那是被下一張牌疊住後仍露出的區域 */}
-                <div className="text-left w-[5.5rem] sm:w-[6.5rem]">
-                  <p className="text-xs sm:text-sm font-semibold leading-snug">{p.title}</p>
+                <div className="relative z-[1] text-left w-[5.5rem] sm:w-[6.5rem]">
+                  <p className="text-emboss text-xs sm:text-sm font-semibold leading-snug">{p.title}</p>
                   <p
                     className={
                       "text-[11px] text-sky-300 mt-1 transition-opacity group-hover:opacity-100 " +
@@ -534,7 +534,7 @@ export default function CardFan({ projects }: { projects: Project[] }) {
                 <div
                   aria-hidden
                   className={
-                    "absolute inset-0 rounded-2xl bg-[#0a0e14] pointer-events-none " +
+                    "absolute inset-0 z-[2] rounded-2xl bg-[#0a0e14] pointer-events-none " +
                     "opacity-(--veil) group-hover:opacity-0 group-focus-visible:opacity-0" +
                     (isCentered ? " opacity-0" : "")
                   }

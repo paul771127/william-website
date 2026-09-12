@@ -45,3 +45,68 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .fx-shine, .fx-glow, .fx-spark, .fx-rise, .fx-halo { animation: none; opacity: 1; }
 }
+
+/* ---- 卡牌立體浮雕 ---- */
+/* 牌身:外部落影 + 四邊內斜角(上緣受光、下緣入陰),做出厚度感 */
+.card-emboss {
+  box-shadow:
+    0 18px 32px -12px rgba(0, 0, 0, 0.8),
+    0 6px 14px -6px rgba(0, 0, 0, 0.65),
+    inset 0 2px 0 0 rgba(255, 255, 255, 0.26),
+    inset 2px 0 0 0 rgba(255, 255, 255, 0.1),
+    inset 0 -2px 0 0 rgba(0, 0, 0, 0.6),
+    inset -2px 0 0 0 rgba(0, 0, 0, 0.45),
+    inset 0 0 36px -6px rgba(0, 0, 0, 0.5);
+}
+/* 抽起來的牌:浮得更高、鑲藍色輝光 */
+.card-emboss-lift {
+  box-shadow:
+    0 30px 48px -14px rgba(0, 0, 0, 0.85),
+    0 10px 20px -8px rgba(0, 0, 0, 0.7),
+    0 0 26px -4px rgba(56, 189, 248, 0.45),
+    inset 0 2px 0 0 rgba(255, 255, 255, 0.38),
+    inset 2px 0 0 0 rgba(255, 255, 255, 0.16),
+    inset 0 -2px 0 0 rgba(0, 0, 0, 0.6),
+    inset -2px 0 0 0 rgba(0, 0, 0, 0.45),
+    inset 0 0 30px -8px rgba(0, 0, 0, 0.45);
+}
+/* 牌面內凹的雕刻框線 */
+.card-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0.45rem;
+  border-radius: 0.8rem;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(255, 255, 255, 0.05);
+}
+/* 斜向反光:左上受光、右下入陰,強化浮雕方向 */
+.card-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.06) 20%,
+    rgba(255, 255, 255, 0) 44%,
+    rgba(0, 0, 0, 0.12) 68%,
+    rgba(0, 0, 0, 0.32) 100%
+  );
+}
+/* 浮雕文字與圖示 */
+.text-emboss {
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.9),
+    0 -1px 0 rgba(255, 255, 255, 0.14);
+}
+.icon-emboss {
+  filter:
+    drop-shadow(0 2px 3px rgba(0, 0, 0, 0.75))
+    drop-shadow(0 -1px 0 rgba(255, 255, 255, 0.18));
+}
