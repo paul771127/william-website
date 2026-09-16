@@ -110,3 +110,97 @@ body {
     drop-shadow(0 2px 3px rgba(0, 0, 0, 0.75))
     drop-shadow(0 -1px 0 rgba(255, 255, 255, 0.18));
 }
+
+/* ---- 首頁互動效果 ---- */
+/* 游標聚光燈:跟著滑鼠的柔光,滑出去就淡掉 */
+.hero-spot {
+  --mx: 50%;
+  --my: 40%;
+}
+.hero-spot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    380px circle at var(--mx) var(--my),
+    rgba(56, 189, 248, 0.16),
+    rgba(56, 189, 248, 0.05) 40%,
+    transparent 68%
+  );
+  transition: opacity 400ms ease;
+}
+/* 粒子場邊緣淡出,不要有生硬的方框 */
+.hero-mask {
+  -webkit-mask-image: radial-gradient(ellipse 78% 72% at 50% 45%, #000 45%, transparent 100%);
+  mask-image: radial-gradient(ellipse 78% 72% at 50% 45%, #000 45%, transparent 100%);
+}
+
+/* 技能標籤:滑過浮起發光 */
+.skill-pill {
+  transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 260ms ease,
+    box-shadow 260ms ease, color 260ms ease;
+}
+.skill-pill:hover {
+  transform: translateY(-3px) scale(1.06);
+  border-color: rgba(56, 189, 248, 0.9);
+  color: #e0f2fe;
+  box-shadow: 0 8px 20px -8px rgba(56, 189, 248, 0.6), 0 0 18px -4px rgba(56, 189, 248, 0.5);
+}
+
+/* 3D 傾斜卡片 */
+.tilt-wrap {
+  perspective: 900px;
+}
+.tilt-inner {
+  --rx: 0deg;
+  --ry: 0deg;
+  --gx: 50%;
+  --gy: 50%;
+  --lift: 0;
+  position: relative;
+  height: 100%;
+  transform: rotateX(var(--rx)) rotateY(var(--ry)) translateZ(calc(var(--lift) * 14px));
+  transform-style: preserve-3d;
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 220ms ease;
+  border-radius: 0.75rem;
+}
+.tilt-inner:hover {
+  box-shadow: 0 26px 44px -18px rgba(0, 0, 0, 0.85), 0 0 28px -10px rgba(56, 189, 248, 0.55);
+}
+/* 跟著游標跑的高光 */
+.tilt-inner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: var(--lift);
+  transition: opacity 220ms ease;
+  background: radial-gradient(
+    260px circle at var(--gx) var(--gy),
+    rgba(255, 255, 255, 0.16),
+    transparent 62%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-spot::before,
+  .tilt-inner::after {
+    display: none;
+  }
+  .tilt-inner,
+  .skill-pill {
+    transform: none !important;
+    transition: none;
+  }
+}
+
+/* 沒有 JavaScript 時,捲動浮現的區塊要直接顯示,不能留白 */
+@media (scripting: none) {
+  .fx-rise,
+  [class*="opacity-0"] {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+}
