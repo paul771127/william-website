@@ -16,6 +16,7 @@ export default function IntroCurtain() {
   const [gone, setGone] = useState(false);
   // 計數用 JS 跑;沒有 JS 時整個不顯示,不會卡在 0 看起來像壞掉
   const [count, setCount] = useState<number | null>(null);
+  const [runId, setRunId] = useState(0); // 換一次就重跑一輪動畫
   const scatter = useRef(
     NAME.split("").map(() => ({
       x: (Math.random() - 0.5) * 560,
@@ -24,19 +25,33 @@ export default function IntroCurtain() {
     }))
   );
 
+  // 點 logo 的藍點可以重看開場
+  useEffect(() => {
+    const replay = () => {
+      document.documentElement.classList.remove("intro-seen");
+      setCount(null);
+      setGone(false);
+      setRunId((n) => n + 1);
+    };
+    window.addEventListener("replay-intro", replay);
+    return () => window.removeEventListener("replay-intro", replay);
+  }, []);
+
   useEffect(() => {
     let seen = false;
     try {
-      seen = sessionStorage.getItem("intro-played") === "1";
+      seen =
+        sessionStorage.getItem("intro-v3") === "1" &&
+        !window.location.search.includes("intro"); // ?intro 可強制重播
     } catch {
       seen = false;
     }
-    if (seen || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if ((seen && runId === 0) || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setGone(true);
       return;
     }
     try {
-      sessionStorage.setItem("intro-played", "1");
+      sessionStorage.setItem("intro-v3", "1");
     } catch {
       /* 存不進去就下次再播一次 */
     }
@@ -60,12 +75,12 @@ export default function IntroCurtain() {
       cancelAnimationFrame(craf);
       document.body.style.overflow = "";
     };
-  }, []);
+  }, [runId]);
 
   if (gone) return null;
 
   return (
-    <div aria-hidden className="intro-curtain fixed inset-0 z-[300] pointer-events-none">
+    <div key={runId} aria-hidden className="intro-curtain fixed inset-0 z-[300] pointer-events-none">
       {/* 上下兩片幕 */}
       <div className="intro-panel-top absolute inset-x-0 top-0 h-1/2 bg-[#0a0e14]" />
       <div className="intro-panel-bottom absolute inset-x-0 bottom-0 h-1/2 bg-[#0a0e14]" />

@@ -49,12 +49,18 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-40 backdrop-blur bg-[#0a0e14]/80 border-b border-white/10">
       <nav className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-        <Link href="/" className="group font-bold text-lg tracking-wide">
-          William
-          <span className="text-sky-400 inline-block transition-transform duration-[var(--dur-2)] ease-[var(--ease-spring)] group-hover:scale-150 group-hover:rotate-12">
+        <div className="group font-display font-bold text-lg tracking-wide">
+          <Link href="/">William</Link>
+          <button
+            type="button"
+            aria-label="重播開場動畫"
+            title="重播開場動畫"
+            onClick={() => window.dispatchEvent(new Event("replay-intro"))}
+            className="text-sky-400 inline-block align-baseline transition-transform duration-[var(--dur-2)] ease-[var(--ease-spring)] hover:scale-[2] hover:rotate-12 cursor-pointer"
+          >
             .
-          </span>
-        </Link>
+          </button>
+        </div>
 
         <div ref={wrapRef} className="relative flex gap-5 text-sm text-gray-300" onPointerLeave={reset}>
           {links.map((l, i) => (

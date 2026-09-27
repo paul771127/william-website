@@ -7,6 +7,7 @@ import TiltCard from "@/components/TiltCard";
 import Reveal from "@/components/Reveal";
 import ScrambleText from "@/components/ScrambleText";
 import MagneticButton from "@/components/MagneticButton";
+import BlueprintArm from "@/components/BlueprintArm";
 
 export const revalidate = 60;
 
@@ -23,11 +24,36 @@ export default async function Home() {
         intro={profile.intro}
       />
 
+      {/* 機構藍圖:自己畫出來,然後動起來 */}
+      <section className="space-y-8">
+        <Reveal>
+          <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+            <div>
+              <p className="font-mono-ui text-[11px] tracking-[0.35em] text-sky-400/90 uppercase">
+                02 — Motion
+              </p>
+              <ScrambleText as="h2" text="機構設計" className="font-display text-2xl font-bold mt-2" />
+            </div>
+            <p className="text-sm text-gray-400 sm:text-right max-w-sm">
+              從尺寸標註到運動模擬。這張圖會自己畫出來,畫完之後三軸開始連續動作。
+            </p>
+          </div>
+        </Reveal>
+        <Reveal delay={120}>
+          <BlueprintArm />
+        </Reveal>
+      </section>
+
       {/* 精選作品 */}
       <section className="space-y-8">
         <Reveal>
           <div className="flex items-end justify-between">
-            <ScrambleText as="h2" text="精選作品" className="text-2xl font-bold" />
+            <div>
+              <p className="font-mono-ui text-[11px] tracking-[0.35em] text-sky-400/90 uppercase">
+                03 — Work
+              </p>
+              <ScrambleText as="h2" text="精選作品" className="font-display text-2xl font-bold mt-2" />
+            </div>
             <Link href="/portfolio" className="text-sm text-sky-400 hover:underline">
               查看全部 →
             </Link>

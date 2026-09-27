@@ -427,3 +427,72 @@ html.intro-seen .intro-curtain { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .intro-curtain { display: none; }
 }
+
+/* ============================================================
+   機構藍圖:線條自己畫出來,畫完之後手臂開始運動
+   預設狀態是「已畫好」,JS 掛載後才收起來重畫 → 沒有 JS 也看得到完整圖
+   ============================================================ */
+@keyframes bpDraw { to { stroke-dashoffset: 0; } }
+@keyframes bpFade { to { opacity: 1; } }
+@keyframes bpPop  { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes bpScan {
+  0%   { transform: translateY(-8%); opacity: 0; }
+  12%  { opacity: 1; }
+  88%  { opacity: 1; }
+  100% { transform: translateY(108%); opacity: 0; }
+}
+/* 三軸運動:各關節週期相同但相位不同,組合出連續的取放動作 */
+@keyframes bpArm1 {
+  0%, 100% { transform: rotate(-6deg); }
+  18%      { transform: rotate(-30deg); }
+  46%      { transform: rotate(16deg); }
+  72%      { transform: rotate(30deg); }
+}
+@keyframes bpArm2 {
+  0%, 100% { transform: rotate(10deg); }
+  18%      { transform: rotate(48deg); }
+  46%      { transform: rotate(-22deg); }
+  72%      { transform: rotate(-44deg); }
+}
+@keyframes bpGrip {
+  0%, 14%, 44%, 100% { transform: rotate(0deg); }
+  24%, 34%           { transform: rotate(-14deg); }
+}
+@keyframes bpGripB {
+  0%, 14%, 44%, 100% { transform: rotate(0deg); }
+  24%, 34%           { transform: rotate(14deg); }
+}
+
+/* JS 掛載後:把要畫的線收起來、標註藏起來 */
+.bp-armed .bp-draw { stroke-dashoffset: 1; }
+.bp-armed .bp-fade { opacity: 0; }
+.bp-armed .bp-pop  { transform: scale(0); }
+
+/* 捲進畫面:開始畫 */
+.bp-run .bp-draw { animation: bpDraw 820ms var(--ease-out) both; }
+.bp-run .bp-fade { animation: bpFade 520ms var(--ease-out) both; }
+.bp-run .bp-pop  { animation: bpPop 420ms var(--ease-spring) both; }
+.bp-run .bp-scan { animation: bpScan 2.4s var(--ease-in-out) both; }
+
+/* 畫完之後才開始運動(延遲等於繪製總時長) */
+.bp-run .bp-arm1 { animation: bpArm1 7s var(--ease-in-out) 2.6s infinite; }
+.bp-run .bp-arm2 { animation: bpArm2 7s var(--ease-in-out) 2.6s infinite; }
+.bp-run .bp-gripA { animation: bpGrip 7s var(--ease-in-out) 2.6s infinite; }
+.bp-run .bp-gripB { animation: bpGripB 7s var(--ease-in-out) 2.6s infinite; }
+
+/* 關節的旋轉中心:用 view-box 座標,巢狀旋轉才會是正確的運動學 */
+.bp-arm1, .bp-arm2, .bp-gripA, .bp-gripB { transform-box: view-box; }
+.bp-arm1  { transform-origin: 140px 330px; }
+.bp-arm2  { transform-origin: 140px 190px; }
+.bp-gripA { transform-origin: 140px 85px; }
+.bp-gripB { transform-origin: 140px 85px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bp-armed .bp-draw { stroke-dashoffset: 0; }
+  .bp-armed .bp-fade { opacity: 1; }
+  .bp-armed .bp-pop  { transform: none; }
+  .bp-run .bp-draw, .bp-run .bp-fade, .bp-run .bp-pop, .bp-run .bp-scan,
+  .bp-run .bp-arm1, .bp-run .bp-arm2, .bp-run .bp-gripA, .bp-run .bp-gripB {
+    animation: none;
+  }
+}

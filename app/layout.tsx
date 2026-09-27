@@ -43,7 +43,7 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{if(sessionStorage.getItem('intro-played')==='1')document.documentElement.classList.add('intro-seen')}catch(e){}",
+              "try{if(sessionStorage.getItem('intro-v3')==='1'&&!location.search.includes('intro'))document.documentElement.classList.add('intro-seen')}catch(e){}",
           }}
         />
       </head>
