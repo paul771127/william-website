@@ -5,6 +5,8 @@ import ProjectCard from "@/components/ProjectCard";
 import HeroInteractive from "@/components/HeroInteractive";
 import TiltCard from "@/components/TiltCard";
 import Reveal from "@/components/Reveal";
+import ScrambleText from "@/components/ScrambleText";
+import MagneticButton from "@/components/MagneticButton";
 
 export const revalidate = 60;
 
@@ -25,7 +27,7 @@ export default async function Home() {
       <section className="space-y-8">
         <Reveal>
           <div className="flex items-end justify-between">
-            <h2 className="text-2xl font-bold">精選作品</h2>
+            <ScrambleText as="h2" text="精選作品" className="text-2xl font-bold" />
             <Link href="/portfolio" className="text-sm text-sky-400 hover:underline">
               查看全部 →
             </Link>
@@ -45,26 +47,30 @@ export default async function Home() {
       {/* 聯絡我 */}
       <Reveal>
         <section id="contact" className="text-center space-y-4 scroll-mt-20">
-          <h2 className="text-2xl font-bold">聯絡我</h2>
+          <ScrambleText as="h2" text="聯絡我" className="text-2xl font-bold" />
           <p className="text-gray-400">
             有合作機會或技術交流,歡迎透過以下方式聯繫,或直接使用右下角的 AI 客服提問。
           </p>
           <div className="flex justify-center gap-4">
-            <a
-              href={profile.github}
-              target="_blank"
-              rel="noreferrer"
-              className="skill-pill px-5 py-2 rounded-lg border border-white/20 hover:border-sky-400 hover:text-sky-400 transition-colors"
-            >
-              GitHub
-            </a>
-            {profile.email && (
+            <MagneticButton>
               <a
-                href={`mailto:${profile.email}`}
-                className="skill-pill px-5 py-2 rounded-lg bg-sky-500 text-white hover:bg-sky-400 transition-colors"
+                href={profile.github}
+                target="_blank"
+                rel="noreferrer"
+                className="skill-pill inline-block px-5 py-2 rounded-lg border border-white/20 hover:border-sky-400 hover:text-sky-400 transition-colors"
               >
-                寄信給我
+                GitHub
               </a>
+            </MagneticButton>
+            {profile.email && (
+              <MagneticButton>
+                <a
+                  href={`mailto:${profile.email}`}
+                  className="skill-pill inline-block px-5 py-2 rounded-lg bg-sky-500 text-white hover:bg-sky-400 transition-colors"
+                >
+                  寄信給我
+                </a>
+              </MagneticButton>
             )}
           </div>
         </section>

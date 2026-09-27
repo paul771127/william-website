@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getPosts } from "@/lib/queries";
+import ScrambleText from "@/components/ScrambleText";
 
 export const metadata: Metadata = { title: "部落格 | William" };
 export const revalidate = 60;
@@ -11,7 +12,7 @@ export default async function BlogPage() {
   return (
     <div className="py-16 space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">部落格</h1>
+        <ScrambleText as="h1" text="部落格" className="text-3xl font-bold" />
         <p className="text-gray-400 mt-2">AI 整合與機電開發的實戰筆記。</p>
       </div>
 

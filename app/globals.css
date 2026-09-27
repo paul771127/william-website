@@ -204,3 +204,106 @@ body {
     animation: none !important;
   }
 }
+
+/* ============================================================
+   動態設計語言 (motion system)
+   所有動畫共用同一組時間與緩動,整站的節奏才會是一致的
+   ============================================================ */
+:root {
+  --dur-1: 180ms;  /* 微互動:hover、按下 */
+  --dur-2: 320ms;  /* 元件狀態轉換 */
+  --dur-3: 520ms;  /* 進場、離場 */
+  --dur-4: 900ms;  /* 場景級:開場、展開 */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);   /* 主要:快出慢收 */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1); /* 對稱移動 */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* 回彈 */
+}
+
+/* ---- 開場動畫 ---- */
+@keyframes introSweep {
+  0%   { transform: scaleX(0); opacity: 0; }
+  35%  { transform: scaleX(1); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 0; }
+}
+@keyframes introLetter {
+  0%   { opacity: 0; transform: translate(var(--ix), var(--iy)) rotate(var(--ir)) scale(0.4); filter: blur(6px); }
+  60%  { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes introLift {
+  to { transform: translateY(-101%); }
+}
+@keyframes introFadeOut {
+  to { opacity: 0; visibility: hidden; }
+}
+
+/* ---- 游標光暈 ---- */
+.cursor-halo {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 200;
+  pointer-events: none;
+  border-radius: 9999px;
+  mix-blend-mode: screen;
+  transition: width var(--dur-2) var(--ease-out), height var(--dur-2) var(--ease-out),
+    opacity var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out);
+}
+
+/* ---- 捲動進度 ---- */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 60;
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, #0ea5e9, #22d3ee 45%, #a78bfa);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.8);
+}
+
+/* ---- 導覽列滑動指示器 ---- */
+.nav-ind {
+  position: absolute;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #38bdf8, #22d3ee);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.9);
+  transition: transform var(--dur-3) var(--ease-out), width var(--dur-3) var(--ease-out),
+    opacity var(--dur-2) var(--ease-out);
+}
+
+/* ---- 標題解碼中的字元 ---- */
+.scramble-on {
+  color: #22d3ee;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.7);
+}
+
+/* ---- 區塊分隔:自己畫出來的線 ---- */
+@keyframes lineDraw {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.line-draw {
+  transform-origin: 0 50%;
+  animation: lineDraw var(--dur-4) var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor-halo { display: none; }
+  .line-draw { animation: none; transform: none; }
+}
+
+/* 幕的升起走純 CSS:JS 沒跑也一定會露出頁面,不會整站全黑 */
+.intro-curtain {
+  animation: introLift var(--dur-4) var(--ease-out) 1850ms both;
+}
+/* 這個瀏覽階段已經看過(由 layout 的行內腳本標記)→ 不再閃一下 */
+html.intro-seen .intro-curtain {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro-curtain { display: none; }
+}

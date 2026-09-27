@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getProjects } from "@/lib/queries";
 import CardFan from "@/components/CardFan";
+import ScrambleText from "@/components/ScrambleText";
 
 export const metadata: Metadata = { title: "作品集 | William" };
 export const revalidate = 60;
@@ -11,7 +12,7 @@ export default async function PortfolioPage() {
   return (
     <div className="py-16 space-y-6 overflow-hidden">
       <div className="text-center">
-        <h1 className="text-3xl font-bold">作品集</h1>
+        <ScrambleText as="h1" text="作品集" className="text-3xl font-bold" />
         <p className="text-gray-400 mt-2">
           機電整合、AI 應用與軟韌體開發的實作專案。
         </p>
