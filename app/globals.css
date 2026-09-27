@@ -464,21 +464,14 @@ html.intro-seen .intro-curtain { display: none; }
 }
 
 /* JS 掛載後:把要畫的線收起來、標註藏起來 */
-.bp-armed .bp-draw { stroke-dashoffset: 1; }
-.bp-armed .bp-fade { opacity: 0; }
-.bp-armed .bp-pop  { transform: scale(0); }
-
-/* 捲進畫面:開始畫 */
-.bp-run .bp-draw { animation: bpDraw 820ms var(--ease-out) both; }
-.bp-run .bp-fade { animation: bpFade 520ms var(--ease-out) both; }
-.bp-run .bp-pop  { animation: bpPop 420ms var(--ease-spring) both; }
-.bp-run .bp-scan { animation: bpScan 2.4s var(--ease-in-out) both; }
+/* 繪製/淡入/彈出共用 sc-*(見上方共用場景);這裡只留藍圖專屬的部分 */
+.sc-run .bp-scan { animation: bpScan 2.4s var(--ease-in-out) both; }
 
 /* 畫完之後才開始運動(延遲等於繪製總時長) */
-.bp-run .bp-arm1 { animation: bpArm1 7s var(--ease-in-out) 2.6s infinite; }
-.bp-run .bp-arm2 { animation: bpArm2 7s var(--ease-in-out) 2.6s infinite; }
-.bp-run .bp-gripA { animation: bpGrip 7s var(--ease-in-out) 2.6s infinite; }
-.bp-run .bp-gripB { animation: bpGripB 7s var(--ease-in-out) 2.6s infinite; }
+.sc-run .bp-arm1 { animation: bpArm1 7s var(--ease-in-out) 2.6s infinite; }
+.sc-run .bp-arm2 { animation: bpArm2 7s var(--ease-in-out) 2.6s infinite; }
+.sc-run .bp-gripA { animation: bpGrip 7s var(--ease-in-out) 2.6s infinite; }
+.sc-run .bp-gripB { animation: bpGripB 7s var(--ease-in-out) 2.6s infinite; }
 
 /* 關節的旋轉中心:用 view-box 座標,巢狀旋轉才會是正確的運動學 */
 .bp-arm1, .bp-arm2, .bp-gripA, .bp-gripB { transform-box: view-box; }
@@ -488,11 +481,105 @@ html.intro-seen .intro-curtain { display: none; }
 .bp-gripB { transform-origin: 140px 85px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .bp-armed .bp-draw { stroke-dashoffset: 0; }
-  .bp-armed .bp-fade { opacity: 1; }
-  .bp-armed .bp-pop  { transform: none; }
-  .bp-run .bp-draw, .bp-run .bp-fade, .bp-run .bp-pop, .bp-run .bp-scan,
-  .bp-run .bp-arm1, .bp-run .bp-arm2, .bp-run .bp-gripA, .bp-run .bp-gripB {
-    animation: none;
-  }
+  .sc-run .bp-scan, .sc-run .bp-arm1, .sc-run .bp-arm2,
+  .sc-run .bp-gripA, .sc-run .bp-gripB { animation: none; }
 }
+
+/* ============================================================
+   共用動畫場景:預設「已畫好」,JS 掛載後收起,捲進畫面才播放
+   ============================================================ */
+@keyframes scDraw { to { stroke-dashoffset: 0; } }
+@keyframes scFade { to { opacity: 1; } }
+@keyframes scPop  { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes scRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+.sc-armed .sc-draw { stroke-dashoffset: 1; }
+.sc-armed .sc-fade { opacity: 0; }
+.sc-armed .sc-pop  { transform: scale(0); }
+.sc-armed .sc-rise { opacity: 0; }
+
+.sc-run .sc-draw { animation: scDraw 820ms var(--ease-out) both; }
+.sc-run .sc-fade { animation: scFade 520ms var(--ease-out) both; }
+.sc-run .sc-pop  { animation: scPop 420ms var(--ease-spring) both; }
+.sc-run .sc-rise { animation: scRise 520ms var(--ease-out) both; }
+
+.sc-pop, .sc-popc { transform-box: fill-box; transform-origin: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-armed .sc-draw { stroke-dashoffset: 0; }
+  .sc-armed .sc-fade, .sc-armed .sc-rise { opacity: 1; }
+  .sc-armed .sc-pop { transform: none; }
+  .sc-run * { animation: none !important; }
+}
+
+/* ---- 韌體:示波器 ---- */
+/* 波形畫完之後開始橫向捲動;波形本身畫兩份首尾相接,位移一半就無縫循環 */
+@keyframes scopeScroll { to { transform: translateX(-320px); } }
+@keyframes scopeSweep  { 0% { transform: translateX(0); } 100% { transform: translateX(560px); } }
+@keyframes blink       { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.15; } }
+.sc-run .scope-scroll { animation: scopeScroll 3.2s linear 1.1s infinite; }
+.sc-run .scope-sweep  { animation: scopeSweep 3.2s linear 1.1s infinite; }
+.sc-run .scope-blink  { animation: blink 1.1s steps(1) 1.1s infinite; }
+
+/* ---- 軟體:地面站導航 ---- */
+/* 船沿著航線走:用 CSS motion path,offset-rotate 讓船首自動對準航向 */
+@keyframes sail { to { offset-distance: 100%; } }
+@keyframes radarSweep { to { transform: rotate(360deg); } }
+@keyframes wpPing {
+  0%   { r: 5; opacity: 0.9; }
+  100% { r: 20; opacity: 0; }
+}
+.sc-run .nav-boat {
+  offset-path: path("M70 250 L190 196 L330 224 L452 140 L556 176");
+  offset-rotate: auto;
+  animation: sail 11s linear 2s infinite;
+}
+.sc-run .nav-radar { animation: radarSweep 4s linear infinite; transform-box: fill-box; transform-origin: center; }
+.sc-run .nav-ping  { animation: wpPing 2.2s var(--ease-out) infinite; }
+/* 數值輪播:四組讀數各顯示四分之一時間 */
+@keyframes readoutCycle {
+  0%, 22%   { opacity: 1; }
+  25%, 97%  { opacity: 0; }
+  100%      { opacity: 1; }
+}
+.sc-run .nav-readout { animation: readoutCycle 8s steps(1, end) 2s infinite; }
+
+/* ---- Android:App 介面自己組起來 + 觸控漣漪 ---- */
+@keyframes tapRipple {
+  0%   { r: 2; opacity: 0.85; }
+  100% { r: 30; opacity: 0; }
+}
+@keyframes tapHop {
+  0%, 24%   { transform: translate(0, 0); }
+  25%, 49%  { transform: translate(56px, 0); }
+  50%, 74%  { transform: translate(56px, 52px); }
+  75%, 100% { transform: translate(0, 52px); }
+}
+@keyframes ioBlink { 0%, 45% { opacity: 1; } 50%, 100% { opacity: 0.18; } }
+@keyframes jogPress {
+  0%, 20%, 100% { transform: scale(1); }
+  8%            { transform: scale(0.9); }
+}
+.sc-run .and-tap    { animation: tapHop 6s steps(1) 1.6s infinite; }
+.sc-run .and-ripple { animation: tapRipple 1.5s var(--ease-out) 1.6s infinite; }
+.sc-run .and-io1    { animation: ioBlink 1.4s steps(1) 1.8s infinite; }
+.sc-run .and-io2    { animation: ioBlink 2.1s steps(1) 2.4s infinite; }
+.sc-run .and-io3    { animation: ioBlink 1.7s steps(1) 2.0s infinite; }
+.sc-run .and-jog    { animation: jogPress 6s var(--ease-out) 1.6s infinite; transform-box: fill-box; transform-origin: center; }
+
+/* ---- AI:推論流 ---- */
+@keyframes synapse {
+  0%   { stroke-dashoffset: 26; opacity: 0.15; }
+  40%  { opacity: 0.95; }
+  100% { stroke-dashoffset: 0; opacity: 0.15; }
+}
+@keyframes nodePulse {
+  0%, 100% { opacity: 0.35; r: 6; }
+  50%      { opacity: 1; r: 8.5; }
+}
+@keyframes tokenIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+@keyframes caret { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+.sc-run .ai-syn   { stroke-dasharray: 13 13; animation: synapse 1.9s linear infinite; }
+.sc-run .ai-node  { animation: nodePulse 2.4s var(--ease-in-out) infinite; transform-box: fill-box; transform-origin: center; }
+.sc-run .ai-token { animation: tokenIn 420ms var(--ease-out) both; }
+.sc-run .ai-caret { animation: caret 1s steps(1) infinite; }

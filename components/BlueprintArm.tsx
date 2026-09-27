@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import Scene from "@/components/Scene";
 
 const SKY = "#38bdf8";
 const FAINT = "rgba(125, 211, 252, 0.18)";
@@ -8,44 +8,15 @@ const FAINT = "rgba(125, 211, 252, 0.18)";
 /**
  * 機構藍圖:捲進畫面時線條依序自己畫出來(底座 → 連桿 → 關節 → 夾爪 → 標註 →
  * 角度弧),畫完之後三軸開始連續運動,像一張活起來的設計圖。
- *
- * 預設 HTML/CSS 就是一張完整的靜態圖;JS 掛載後才把線收起來準備重畫,
- * 所以沒有 JS 也看得到完整的藍圖,不會是一片空白。
+ * 繪製/播放的時機由 Scene 統一處理。
  */
 export default function BlueprintArm() {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [armed, setArmed] = useState(false);
-  const [run, setRun] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    setArmed(true); // 有 JS → 先把線收起來
-    const io = new IntersectionObserver(
-      ([e]) => {
-        if (e.isIntersecting) {
-          setRun(true);
-          io.disconnect();
-        }
-      },
-      { threshold: 0.25 }
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
   // 依序繪製的節奏
   const d = (ms: number) => ({ animationDelay: `${ms}ms` });
 
+
   return (
-    <div
-      ref={ref}
-      className={
-        "relative rounded-2xl border border-white/10 bg-[#070b11]/60 overflow-hidden " +
-        (armed ? "bp-armed " : "") +
-        (run ? "bp-run" : "")
-      }
-    >
+    <Scene label="機械手臂機構藍圖:線條依序繪製後開始運動">
       {/* 繪製時掃過的掃描線 */}
       <div
         aria-hidden
@@ -63,7 +34,7 @@ export default function BlueprintArm() {
         aria-label="六軸機械手臂機構藍圖,線條依序繪製後開始運動"
       >
         {/* 格線 */}
-        <g className="bp-fade" style={d(0)} stroke={FAINT} strokeWidth="0.5">
+        <g className="sc-fade" style={d(0)} stroke={FAINT} strokeWidth="0.5">
           {Array.from({ length: 16 }).map((_, i) => (
             <line key={`v${i}`} x1={i * 40} y1="0" x2={i * 40} y2="420" />
           ))}
@@ -74,7 +45,7 @@ export default function BlueprintArm() {
 
         {/* 中心線(點劃線) */}
         <line
-          className="bp-draw"
+          className="sc-draw"
           style={d(220)}
           pathLength={1}
           strokeDasharray={1}
@@ -84,28 +55,28 @@ export default function BlueprintArm() {
 
         {/* 底座 + 剖面線 */}
         <rect
-          className="bp-draw" style={d(420)} pathLength={1} strokeDasharray={1}
+          className="sc-draw" style={d(420)} pathLength={1} strokeDasharray={1}
           x="90" y="330" width="100" height="28" rx="3"
           fill="rgba(56,189,248,0.06)" stroke={SKY} strokeWidth="2"
         />
-        <g className="bp-draw" style={d(560)} stroke="rgba(125,211,252,0.5)" strokeWidth="1">
+        <g className="sc-draw" style={d(560)} stroke="rgba(125,211,252,0.5)" strokeWidth="1">
           {Array.from({ length: 9 }).map((_, i) => (
             <line key={i} pathLength={1} strokeDasharray={1}
               x1={88 + i * 12} y1="372" x2={100 + i * 12} y2="358" />
           ))}
         </g>
-        <line className="bp-draw" style={d(560)} pathLength={1} strokeDasharray={1}
+        <line className="sc-draw" style={d(560)} pathLength={1} strokeDasharray={1}
           x1="80" y1="372" x2="200" y2="372" stroke="rgba(125,211,252,0.5)" strokeWidth="1" />
 
         {/* ---- 手臂本體:巢狀旋轉,運動學才正確 ---- */}
         <g className="bp-arm1">
           {/* 連桿 1 */}
           <path
-            className="bp-draw" style={d(760)} pathLength={1} strokeDasharray={1}
+            className="sc-draw" style={d(760)} pathLength={1} strokeDasharray={1}
             d="M126 330 L126 190 A14 14 0 0 1 154 190 L154 330 Z"
             fill="rgba(56,189,248,0.07)" stroke={SKY} strokeWidth="2.5"
           />
-          <text className="bp-fade" style={d(1500)} x="164" y="266"
+          <text className="sc-fade" style={d(1500)} x="164" y="266"
             fill="rgba(186,230,253,0.75)" fontSize="13" fontFamily="var(--font-mono), monospace">
             L1
           </text>
@@ -113,78 +84,78 @@ export default function BlueprintArm() {
           <g className="bp-arm2">
             {/* 連桿 2 */}
             <path
-              className="bp-draw" style={d(1040)} pathLength={1} strokeDasharray={1}
+              className="sc-draw" style={d(1040)} pathLength={1} strokeDasharray={1}
               d="M129 190 L129 85 A11 11 0 0 1 151 85 L151 190 Z"
               fill="rgba(56,189,248,0.07)" stroke={SKY} strokeWidth="2.5"
             />
-            <text className="bp-fade" style={d(1600)} x="160" y="140"
+            <text className="sc-fade" style={d(1600)} x="160" y="140"
               fill="rgba(186,230,253,0.75)" fontSize="13" fontFamily="var(--font-mono), monospace">
               L2
             </text>
 
             {/* 夾爪:兩指開合 */}
             <g className="bp-gripA">
-              <path className="bp-draw" style={d(1320)} pathLength={1} strokeDasharray={1}
+              <path className="sc-draw" style={d(1320)} pathLength={1} strokeDasharray={1}
                 d="M133 85 L120 56 L128 50" fill="none" stroke={SKY} strokeWidth="2.5" strokeLinecap="round" />
             </g>
             <g className="bp-gripB">
-              <path className="bp-draw" style={d(1320)} pathLength={1} strokeDasharray={1}
+              <path className="sc-draw" style={d(1320)} pathLength={1} strokeDasharray={1}
                 d="M147 85 L160 56 L152 50" fill="none" stroke={SKY} strokeWidth="2.5" strokeLinecap="round" />
             </g>
 
             {/* 關節 2 */}
-            <circle className="bp-pop" style={{ ...d(1180), transformBox: "fill-box", transformOrigin: "center" }}
+            <circle className="sc-pop" style={{ ...d(1180), transformBox: "fill-box", transformOrigin: "center" }}
               cx="140" cy="190" r="9" fill="#0a0e14" stroke={SKY} strokeWidth="2.5" />
-            <circle className="bp-pop" style={{ ...d(1260), transformBox: "fill-box", transformOrigin: "center" }}
+            <circle className="sc-pop" style={{ ...d(1260), transformBox: "fill-box", transformOrigin: "center" }}
               cx="140" cy="190" r="3" fill={SKY} />
           </g>
         </g>
 
         {/* 關節 1(底座軸心) */}
-        <circle className="bp-pop" style={{ ...d(900), transformBox: "fill-box", transformOrigin: "center" }}
+        <circle className="sc-pop" style={{ ...d(900), transformBox: "fill-box", transformOrigin: "center" }}
           cx="140" cy="330" r="12" fill="#0a0e14" stroke={SKY} strokeWidth="2.5" />
-        <circle className="bp-pop" style={{ ...d(980), transformBox: "fill-box", transformOrigin: "center" }}
+        <circle className="sc-pop" style={{ ...d(980), transformBox: "fill-box", transformOrigin: "center" }}
           cx="140" cy="330" r="4" fill={SKY} />
 
         {/* 角度弧 + 標註 */}
-        <path className="bp-draw" style={d(1900)} pathLength={1} strokeDasharray={1}
+        <path className="sc-draw" style={d(1900)} pathLength={1} strokeDasharray={1}
           d="M140 260 A70 70 0 0 1 200 295" fill="none"
           stroke="rgba(167,139,250,0.9)" strokeWidth="1.5" />
-        <text className="bp-fade" style={d(2100)} x="205" y="290"
+        <text className="sc-fade" style={d(2100)} x="205" y="290"
           fill="rgba(196,181,253,0.95)" fontSize="13" fontFamily="var(--font-mono), monospace">
           θ1 ±180°
         </text>
 
         {/* 尺寸線:高度 */}
         <g stroke="rgba(125,211,252,0.55)" strokeWidth="1">
-          <line className="bp-draw" style={d(1700)} pathLength={1} strokeDasharray={1}
+          <line className="sc-draw" style={d(1700)} pathLength={1} strokeDasharray={1}
             x1="560" y1="50" x2="560" y2="330" />
-          <line className="bp-draw" style={d(1700)} pathLength={1} strokeDasharray={1}
+          <line className="sc-draw" style={d(1700)} pathLength={1} strokeDasharray={1}
             x1="554" y1="50" x2="566" y2="50" />
-          <line className="bp-draw" style={d(1700)} pathLength={1} strokeDasharray={1}
+          <line className="sc-draw" style={d(1700)} pathLength={1} strokeDasharray={1}
             x1="554" y1="330" x2="566" y2="330" />
         </g>
-        <text className="bp-fade" style={d(1950)} x="572" y="196"
+        <text className="sc-fade" style={d(1950)} x="572" y="196"
           fill="rgba(186,230,253,0.8)" fontSize="13" fontFamily="var(--font-mono), monospace">
           280
         </text>
 
         {/* 尺寸線:底座寬 */}
         <g stroke="rgba(125,211,252,0.55)" strokeWidth="1">
-          <line className="bp-draw" style={d(1780)} pathLength={1} strokeDasharray={1}
+          <line className="sc-draw" style={d(1780)} pathLength={1} strokeDasharray={1}
             x1="90" y1="396" x2="190" y2="396" />
-          <line className="bp-draw" style={d(1780)} pathLength={1} strokeDasharray={1}
+          <line className="sc-draw" style={d(1780)} pathLength={1} strokeDasharray={1}
             x1="90" y1="390" x2="90" y2="402" />
-          <line className="bp-draw" style={d(1780)} pathLength={1} strokeDasharray={1}
+          <line className="sc-draw" style={d(1780)} pathLength={1} strokeDasharray={1}
             x1="190" y1="390" x2="190" y2="402" />
         </g>
-        <text className="bp-fade" style={d(2000)} x="206" y="401"
+        <text className="sc-fade" style={d(2000)} x="206" y="401"
           fill="rgba(186,230,253,0.8)" fontSize="13" fontFamily="var(--font-mono), monospace">
           100
         </text>
 
         {/* 圖框標題 */}
-        <g className="bp-fade" style={d(2200)} fontFamily="var(--font-mono), monospace">
+        <g className="sc-fade" style={d(2200)} fontFamily="var(--font-mono), monospace">
           <text x="380" y="60" fill="rgba(186,230,253,0.5)" fontSize="11" letterSpacing="3">
             DWG-001 / 2-AXIS ARM
           </text>
@@ -193,6 +164,6 @@ export default function BlueprintArm() {
           </text>
         </g>
       </svg>
-    </div>
+    </Scene>
   );
 }
