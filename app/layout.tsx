@@ -1,5 +1,20 @@
 import type { Metadata } from "next";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+
+// 展示字體:幾何無襯線,帶點工程感;等寬字用在編號與標籤
+const display = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "700"],
+  variable: "--font-display",
+  display: "swap",
+});
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-mono",
+  display: "swap",
+});
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatWidget from "@/components/ChatWidget";
@@ -18,7 +33,11 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     // suppressHydrationWarning:iOS Chrome 等瀏覽器會自行在 <html> 加屬性,避免無意義的 hydration 警告
-    <html lang="zh-Hant" suppressHydrationWarning>
+    <html
+      lang="zh-Hant"
+      suppressHydrationWarning
+      className={`${display.variable} ${mono.variable}`}
+    >
       <head>
         {/* 這個瀏覽階段已看過開場動畫就先標記,避免重新整理時黑幕閃一下 */}
         <script
@@ -28,7 +47,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-screen flex flex-col antialiased">
+      <body className="grain min-h-screen flex flex-col antialiased">
         <IntroCurtain />
         <ScrollProgress />
         <CursorHalo />

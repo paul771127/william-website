@@ -3,8 +3,8 @@
 import { useEffect, useRef } from "react";
 import CircuitField from "@/components/CircuitField";
 
-const MAGNET_R = 120; // 標題字元受游標吸引的半徑
-const MAGNET_PULL = 0.34; // 吸引強度
+const MAGNET_R = 140; // 標題字元受游標吸引的半徑
+const MAGNET_PULL = 0.3;
 
 export default function HeroInteractive({
   name,
@@ -18,6 +18,7 @@ export default function HeroInteractive({
   intro: string;
 }) {
   const sectionRef = useRef<HTMLElement | null>(null);
+  const parallaxRef = useRef<HTMLDivElement | null>(null);
   const charRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
   useEffect(() => {
@@ -29,31 +30,28 @@ export default function HeroInteractive({
     let px = 0;
     let py = 0;
 
-    const apply = () => {
+    const applyPointer = () => {
       raf = 0;
       const r = section.getBoundingClientRect();
-      // 聚光燈:游標在區塊內的相對位置
       section.style.setProperty("--mx", `${px - r.left}px`);
       section.style.setProperty("--my", `${py - r.top}px`);
+      // 視差:整個標題群跟著游標輕微偏移
+      const nx = (px - r.left) / r.width - 0.5;
+      const ny = (py - r.top) / r.height - 0.5;
+      section.style.setProperty("--px", `${nx * 18}px`);
+      section.style.setProperty("--py", `${ny * 12}px`);
 
-      // 磁吸標題:每個字元往游標靠過去,越近拉得越多、也越亮
       for (const el of charRefs.current) {
         if (!el) continue;
         const b = el.getBoundingClientRect();
-        const cx = b.left + b.width / 2;
-        const cy = b.top + b.height / 2;
-        const dx = px - cx;
-        const dy = py - cy;
+        const dx = px - (b.left + b.width / 2);
+        const dy = py - (b.top + b.height / 2);
         const d = Math.hypot(dx, dy);
         if (d < MAGNET_R) {
           const f = (1 - d / MAGNET_R) * MAGNET_PULL;
-          el.style.transform = `translate(${dx * f}px, ${dy * f - f * 26}px) scale(${1 + f * 0.5})`;
-          el.style.color = `rgb(${125 + f * 260}, ${211 + f * 90}, 252)`;
-          el.style.textShadow = `0 0 ${10 + f * 46}px rgba(56,189,248,${f * 1.5})`;
+          el.style.transform = `translate(${dx * f}px, ${dy * f - f * 30}px) scale(${1 + f * 0.22})`;
         } else if (el.style.transform) {
           el.style.transform = "";
-          el.style.color = "";
-          el.style.textShadow = "";
         }
       }
     };
@@ -61,80 +59,114 @@ export default function HeroInteractive({
     const onMove = (e: PointerEvent) => {
       px = e.clientX;
       py = e.clientY;
-      if (!raf) raf = requestAnimationFrame(apply);
+      if (!raf) raf = requestAnimationFrame(applyPointer);
+    };
+
+    // 捲動連動:往下捲時 hero 後退淡出
+    let sraf = 0;
+    const onScroll = () => {
+      if (sraf) return;
+      sraf = requestAnimationFrame(() => {
+        sraf = 0;
+        const p = Math.min(1, Math.max(0, window.scrollY / (window.innerHeight * 0.9)));
+        parallaxRef.current?.style.setProperty("--sp", String(p));
+      });
     };
 
     window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
     return () => {
       window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("scroll", onScroll);
       if (raf) cancelAnimationFrame(raf);
+      if (sraf) cancelAnimationFrame(sraf);
     };
   }, []);
+
+  const ticker = [...skills, ...skills, ...skills, ...skills];
 
   return (
     <section
       ref={sectionRef}
-      className="hero-spot relative -mt-8 pt-16 pb-12 text-center space-y-6 overflow-hidden rounded-3xl"
+      className="hero-spot relative left-1/2 w-screen -translate-x-1/2 -mt-16 min-h-[88vh] flex flex-col justify-center overflow-hidden"
     >
-      {/* 電路粒子場 */}
-      <CircuitField className="pointer-events-none absolute inset-0 h-full w-full hero-mask opacity-80" />
+      {/* 氛圍層:極光 + 電路場 */}
+      <div aria-hidden className="aurora">
+        <span />
+        <span />
+        <span />
+      </div>
+      <CircuitField className="pointer-events-none absolute inset-0 h-full w-full hero-mask opacity-70" />
 
-      <div className="relative z-[1] space-y-6">
-        <p className="fx-rise text-sky-400 tracking-widest text-sm">
-          PORTFOLIO
-        </p>
+      <div
+        ref={parallaxRef}
+        className="scroll-parallax relative z-[1] px-4 sm:px-6 max-w-5xl mx-auto w-full"
+        style={{ transform: "translate(var(--px, 0), var(--py, 0))" }}
+      >
+        {/* 編號 + 標籤 */}
+        <div className="fx-rise font-mono-ui flex items-center gap-3 text-[11px] tracking-[0.35em] text-sky-400/90 uppercase">
+          <span className="h-px w-10 bg-sky-400/60 line-draw" />
+          01 — Portfolio
+        </div>
 
-        {/* 名字:逐字浮現,游標靠近會被吸起來 */}
-        <h1 className="text-4xl sm:text-6xl font-bold">
+        {/* 巨型名字:漸層填字、光掃過、游標磁吸 */}
+        <h1 className="font-display mt-4 leading-[0.86] tracking-[-0.045em] font-bold">
           <span className="sr-only">{name}</span>
-          <span aria-hidden className="inline-flex justify-center">
+          <span
+            aria-hidden
+            className="display-fill block"
+            style={{ fontSize: "clamp(3.6rem, 17vw, 13rem)" }}
+          >
             {name.split("").map((ch, i) => (
               <span
                 key={`${ch}-${i}`}
                 ref={(el) => {
                   charRefs.current[i] = el;
                 }}
-                className={
-                  "fx-rise inline-block will-change-transform transition-[color,text-shadow] duration-200"
-                }
-                style={{ animationDelay: `${90 + i * 55}ms` }}
+                className="fx-rise inline-block will-change-transform"
+                style={{ animationDelay: `${120 + i * 60}ms` }}
               >
-                {ch === " " ? " " : ch}
+                {ch}
               </span>
             ))}
           </span>
         </h1>
 
-        <p
-          className="fx-rise text-xl text-gray-300"
-          style={{ animationDelay: "420ms" }}
-        >
-          {title}
-        </p>
+        {/* 職稱 + 簡介:左右不對稱排版 */}
+        <div className="mt-8 grid gap-6 sm:grid-cols-[auto_1fr] sm:items-start sm:gap-12">
+          <p
+            className="fx-rise font-display text-xl sm:text-2xl text-white/90 whitespace-nowrap"
+            style={{ animationDelay: "520ms" }}
+          >
+            {title}
+          </p>
+          <p
+            className="fx-rise text-gray-400 leading-relaxed max-w-xl sm:border-l sm:border-white/10 sm:pl-12"
+            style={{ animationDelay: "640ms" }}
+          >
+            {intro}
+          </p>
+        </div>
+      </div>
 
-        {/* 技能標籤:滑過會浮起發光 */}
-        <div className="flex flex-wrap justify-center gap-3">
-          {skills.map((s, i) => (
-            <span
-              key={s}
-              className={
-                "fx-rise skill-pill px-4 py-1.5 rounded-full border border-sky-400/40 text-sky-300 text-sm"
-              }
-              style={{ animationDelay: `${500 + i * 90}ms` }}
-            >
-              {s}
+      {/* 技能跑馬燈:貼在 hero 底部,無限橫向流動 */}
+      <div className="relative z-[1] mt-14 border-y border-white/10 bg-white/[0.02] py-3 marquee-mask">
+        <div className="marquee-track font-mono-ui text-sm tracking-[0.2em] uppercase">
+          {ticker.map((s, i) => (
+            <span key={i} className="flex items-center">
+              <span className={i % 2 ? "text-sky-300/90" : "text-white/70"}>{s}</span>
+              <span className="mx-6 text-sky-500/50">✦</span>
             </span>
           ))}
         </div>
+      </div>
 
-        <p
-          className={
-            "fx-rise max-w-2xl mx-auto text-gray-400 leading-relaxed"
-          }
-          style={{ animationDelay: "760ms" }}
-        >
-          {intro}
-        </p>
+      {/* 往下捲提示 */}
+      <div className="relative z-[1] mt-10 flex justify-center">
+        <span className="font-mono-ui text-[10px] tracking-[0.3em] text-white/35 uppercase animate-bounce">
+          scroll ↓
+        </span>
       </div>
     </section>
   );
