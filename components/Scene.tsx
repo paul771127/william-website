@@ -48,6 +48,22 @@ export default function Scene({
       }
     >
       {children}
+
+      {/* 四角定位記號 + 內緣暗角,讓每個面板看起來像同一套儀器 */}
+      <svg aria-hidden className="pointer-events-none absolute inset-0 w-full h-full" viewBox="0 0 100 100"
+        preserveAspectRatio="none">
+        <defs>
+          <radialGradient id="scVig" cx="50%" cy="50%" r="72%">
+            <stop offset="55%" stopColor="#000" stopOpacity="0" />
+            <stop offset="100%" stopColor="#000" stopOpacity="0.45" />
+          </radialGradient>
+        </defs>
+        <rect width="100" height="100" fill="url(#scVig)" />
+      </svg>
+      <span aria-hidden className="sc-corner sc-corner-tl" />
+      <span aria-hidden className="sc-corner sc-corner-tr" />
+      <span aria-hidden className="sc-corner sc-corner-bl" />
+      <span aria-hidden className="sc-corner sc-corner-br" />
     </div>
   );
 }

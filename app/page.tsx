@@ -13,6 +13,7 @@ import NavConsole from "@/components/NavConsole";
 import AndroidPanel from "@/components/AndroidPanel";
 import InferenceFlow from "@/components/InferenceFlow";
 import Capability from "@/components/Capability";
+import SvgDefs from "@/components/SvgDefs";
 
 export const revalidate = 60;
 
@@ -31,6 +32,7 @@ export default async function Home() {
 
       {/* 能力:每一項專長各有一組動畫 */}
       <section className="space-y-10">
+        <SvgDefs />
         <Reveal>
           <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
             <div>

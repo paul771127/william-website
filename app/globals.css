@@ -583,3 +583,16 @@ html.intro-seen .intro-curtain { display: none; }
 .sc-run .ai-node  { animation: nodePulse 2.4s var(--ease-in-out) infinite; transform-box: fill-box; transform-origin: center; }
 .sc-run .ai-token { animation: tokenIn 420ms var(--ease-out) both; }
 .sc-run .ai-caret { animation: caret 1s steps(1) infinite; }
+
+/* 面板四角的定位記號 */
+.sc-corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  border-color: rgba(56, 189, 248, 0.45);
+}
+.sc-corner-tl { top: 10px; left: 10px; border-top: 1px solid; border-left: 1px solid; }
+.sc-corner-tr { top: 10px; right: 10px; border-top: 1px solid; border-right: 1px solid; }
+.sc-corner-bl { bottom: 10px; left: 10px; border-bottom: 1px solid; border-left: 1px solid; }
+.sc-corner-br { bottom: 10px; right: 10px; border-bottom: 1px solid; border-right: 1px solid; }
